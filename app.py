@@ -37,12 +37,13 @@ class Entity:
 
 class StategyProblem:
     """Описываем список задач, которые может решить стратегия"""
-    SAFE = 10
+    THROW_SNAFFLE = 10
 
 class StrategyState:
-    MOVE = 10
-
-
+    CAN_THROW = 20
+    FIND_SNAFFLE = 30
+    MOVE_TO_SNAFFLE = 40
+    THROW_SNAFFLE = 50
 
 
 
@@ -65,6 +66,22 @@ class World:
             # Edit this line to indicate the action for each wizard (0 <= thrust <= 150, 0 <= power <= 500)
             # i.e.: "MOVE x y thrust" or "THROW x y power"
             print "MOVE 8000 3750 100"
+
+
+    def agent(self, wizard):
+        
+        near_snaffle = []
+
+        check_throw = lambda wizard, snaffle: wizard > snaffle
+
+        states = [
+        (StrategyState.CAN_THROW,             StrategyState.THROW_SNAFFLE,      True,        check_throw, [near_snaffle]),
+
+        ]   
+
+
+    def find_problem(self):
+        return StategyProblem.THROW_SNAFFLE
 
 w = World(raw_input())
 
