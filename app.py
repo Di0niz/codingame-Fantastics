@@ -117,6 +117,7 @@ class Strategy:
         check_throw = lambda wizard, snaffle: wizard > snaffle
         check_holding = lambda w : w.state == 1 
         not_none     = lambda t: t != None
+        is_true      = lambda t: t == True
 
         #  Если мяч в руках, отобьем помечаю
         #  Если видим мяч, ты двигаемся к нему
@@ -124,7 +125,7 @@ class Strategy:
         (StrategyState.MOVE, StrategyState.HOLDING_SNAFFLE, check_holding, [wizard]),
         (StrategyState.MOVE, StrategyState.FIND_BLUDGER, not_none, [near_bludger]),
         (StrategyState.MOVE, StrategyState.FIND_SNAFFLE, not_none, [near_snaffle]),
-        (StrategyState.MOVE, StrategyState.FIND_SNAFFLE_ONE, not_none, [prev_snaffle]),
+        (StrategyState.MOVE, StrategyState.FIND_SNAFFLE_ONE, is_true, [len(self.world.snaffles())==1]),
         (StrategyState.MOVE, StrategyState.MOVE_FORWARD, None, self.world.center()),
         (StrategyState.FIND_BLUDGER, StrategyState.MOVE_BLUDGER, None, near_bludger),
         (StrategyState.FIND_SNAFFLE, StrategyState.MOVE_SNAFFLE, None, near_snaffle),
@@ -233,8 +234,3 @@ if __name__ == '__main__':
 
         print fcommand
         print scommand
-
-
-
-   
-
