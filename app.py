@@ -7,6 +7,8 @@ import random
 # Grab Snaffles and try to throw them through the opponent's goal!
 # Move towards a Snaffle and use your team id to determine where you need to throw it.
 
+debug = False
+
 class EntityState:
     """Описание состояния игрока"""
     HOLDING = 1
@@ -23,7 +25,8 @@ class Entity:
         # vx: velocity
         # vy: velocity
         # state: 1 if the wizard is holding a Snaffle, 0 otherwise
-#        print >> sys.stderr, rawinput
+        if debug == True:
+            print >> sys.stderr, rawinput
         entity_id, self.entity_type, x, y, vx, vy, state = rawinput.split()
         self.entity_id = int(entity_id)
         self.x = int(x)
@@ -98,7 +101,7 @@ class World:
     def opponent_gate(self, wizard):
         """ определяем центр игры"""
 
-        return Entity("0 GATE %d %d 0 0 0" % (16000 if self.my_team_id == 0 else 0, min(max(wizard.y,3750 - 1800),3750 + 1800)))
+        return Entity("0 GATE %d %d 0 0 0" % (16000 if self.my_team_id == 0 else 0, min(max(wizard.y,3750 - 800),3750 + 800)))
 
 class Strategy:
     def __init__(self,w):
@@ -196,6 +199,8 @@ class Strategy:
 
 
 if __name__ == '__main__':
+    debug = True
+    
     w = World(raw_input())
 
     # game loop
@@ -229,4 +234,7 @@ if __name__ == '__main__':
         print fcommand
         print scommand
 
+
+
+   
 
