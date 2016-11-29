@@ -105,6 +105,11 @@ class Vec2:
 
         return Vec2(self.x*c-self.y*s, self.x*s+self.y*c)
 
+    def angle_to(self, v):
+        dot  = self.normalize().dot(v.normalize())
+        return math.acos(dot)
+
+
     def distance_from_line(self, point, line_origin, line_unit_tangent):
         offset = point.sub(line_origin)
         perp = offset.perpendicular_component(line_unit_tangent)

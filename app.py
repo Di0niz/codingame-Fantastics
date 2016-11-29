@@ -9,6 +9,149 @@ import random
 
 debug = False
 
+class Vec2:
+    """Определение вектора для решения задачи по поиску"""
+    def __init__(self, x=0.0, y = 0.0):
+        self.x,self.y = x,y
+        
+    def perpendicular_component(self, v):
+        return self.sub(self.parallel_component(v))
+
+    def dot(self, v):
+        return self.x*v.x + self.y*v.y
+
+    def sub(self, v):
+        return Vec2(self.x - v.x, self.y - v.y)
+
+    def minus(self):
+        return Vec2(-self.x, -self.y)
+
+    def add(self, v):
+        return Vec2(self.x + v.x, self.y + v.y)
+
+    def div(self, scalar):
+        return Vec2(self.x/scalar, self.y/scalar)
+
+    def mult(self, scalar):
+        return Vec2(self.x*scalar, self.y*scalar)
+
+    def lenght(self):
+        return math.hypot(self.x, self.y)
+
+    def normalize(self):
+        lenght = self.lenght()
+        if lenght > 0:
+            return self.div(lenght)
+        return self
+
+    def cross(self, a):
+        self = Vec2(self.y, -self.x)
+
+    def distance(self, v):
+        return math.hypot(self.x-v.x, self.y-v.y)
+
+    def parallel_component(self, unit_basis):
+        projection = self.dot(unit_basis)
+        return unit_basis.mult(projection)
+
+    def truncate_lenght(self, max_length):
+        length = self.lenght()
+        math.fabs(max_length)
+
+        if (length > math.fabs(max_length)):
+            return self.mult( max_length / length)
+        return self
+
+    def set_y_zero(self):
+        return Vec2(self.x,0)
+
+
+    def rotate(self, alpha):
+        s = math.sin(alpha)
+        c = math.cos(alpha)
+
+        return Vec2(self.x*c-self.y*s, self.x*s+self.y*c)
+
+    def angle_to(self, v):
+        dot  = self.normalize().dot(v.normalize())
+        return math.acos(dot)
+
+
+    def distance_from_line(self, point, line_origin, line_unit_tangent):
+        offset = point.sub(line_origin)
+        perp = offset.perpendicular_component(line_unit_tangent)
+
+        return perp.length()
+
+    def __repr__(self):
+        return "Vec2"
+
+    def __str__(self):
+        return "(%f,%f)" % (self.x,self.y)
+
+
+
+    def random_vector_in_unit_radius(self):
+        """Returns a position randomly distributed on a disk of unit radius
+    on the XZ (Y=0) plane, centered at the origin.  Orientation will be
+    random and length will range between 0 and 1"""
+        find_solution = False
+        while(not find_solution):
+            v = Vec2(random.random()*2-1,random.random()*2-1)
+            find_solution = v.lenght() >= 1
+
+        return v
+
+    def random_unit_vector(self):
+        """
+        Returns a position randomly distributed on the surface of a sphere
+        of unit radius centered at the origin.  Orientation will be random
+        and length will be 1"""
+        return self.random_vector_in_unit_radius().normilize()
+
+
+    def vec_limit_deviation_angle_utility(self,insideOrOutside,source,cosineOfConeAngle,basis):
+        sourceLength = source.length()
+
+        if (sourceLength == 0): 
+            return source
+
+        direction = source.div(sourceLength)
+        cosineOfSourceAngle = direction.dot (basis)
+
+        if insideOrOutside:
+            if cosineOfSourceAngle >= cosineOfConeAngle:
+                return source
+        else:
+            if cosineOfSourceAngle <= cosineOfConeAngle:
+                return source
+
+        perp = source.perpendicular_component(basis)
+        unitPerp = perp.normalize()
+
+        perpDist = math.sqrt(1 - cosineOfConeAngle*cosineOfSourceAngle)
+
+        c0 = basis.mult(cosineOfConeAngle)
+        c1 = unitPerp.mult(perpDist)
+
+        return c0.add(c1).mult(sourceLength)
+
+
+
+    def limit_max_deviation_angle(self,source,cosineOfConeAngle,basis):
+        return self.vec_limit_deviation_angle_utility(true,source,cosineOfConeAngle,basis)
+    
+    
+    @staticmethod
+    def zero():
+        return Vec2(0,0)
+
+    @staticmethod
+    def forward():
+        return Vec2(0,1)
+
+
+
 class EntityState:
     """Описание состояния игрока"""
     HOLDING = 1
@@ -29,10 +172,8 @@ class Entity:
             print >> sys.stderr, rawinput
         entity_id, self.entity_type, x, y, vx, vy, state = rawinput.split()
         self.entity_id = int(entity_id)
-        self.x = int(x)
-        self.y = int(y)
-        self.vx = int(vx)
-        self.vy = int(vy)
+        self.position = Vec2(int(x), int(y))
+        self.velocity = Vec2(int(vx),int(vy))
         self.state = int(state)
 
     def is_wizard(self):
@@ -43,11 +184,8 @@ class Entity:
     def is_bludger(self):
         return self.entity_type == "BLUDGER"
 
-    def get_distance_to(self, x, y):
-        return math.hypot(x - self.x, y - self.y)
-
     def get_distance_to_unit(self, unit):
-        return self.get_distance_to(unit.x, unit.y)
+        return self.position.distance(unit.position)
 
 
 class StategyProblem:
@@ -101,7 +239,7 @@ class World:
     def opponent_gate(self, wizard):
         """ определяем центр игры"""
 
-        return Entity("0 GATE %d %d 0 0 0" % (16000 if self.my_team_id == 0 else 0, min(max(wizard.y,3750 - 800),3750 + 800)))
+        return Entity("0 GATE %d %d 0 0 0" % (16000 if self.my_team_id == 0 else 0, min(max(wizard.position.y,3750 - 800),3750 + 800)))
 
 class Strategy:
     def __init__(self,w):
@@ -159,15 +297,15 @@ class Strategy:
         command = ""
         if action[0] <= StrategyState.MOVE:
             obj = action[1]
-            command =  "MOVE %d %d %d" % (obj.x, obj.y, int(random.random()*50 + 100))
+            command =  "MOVE %d %d %d" % (obj.position.x, obj.position.y, int(random.random()*50 + 100))
 
         elif action[0] <= StrategyState.THROW:
             obj = action[1] 
-            command = "THROW %d %d %d" % (obj.x, obj.y, int(random.random()*200 + 300))
+            command = "THROW %d %d %d" % (obj.position.x, obj.position.y, int(random.random()*200 + 300))
 
         else:
             obj = self.world.center()
-            command =  "MOVE %d %d %d" % (obj.x, obj.y, int(random.random()*50 + 100))
+            command =  "MOVE %d %d %d" % (obj.position.x, obj.position.y, int(random.random()*50 + 100))
         
         return command
            

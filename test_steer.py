@@ -12,10 +12,11 @@ class Vec2TestCase (unittest.TestCase):
     def test_first_step(self):
 
         a = Vec2(1,2)
-        print a.sub(Vec2(2,7))
+        b = Vec2(2,9)
+        print a.normalize().dot(b.normalize())
 
-        print a
- 
+        print a.angle_to(b)
+
         pass
 
 
