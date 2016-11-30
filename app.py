@@ -207,22 +207,26 @@ class World:
 
 
     def read_raw_input(self):
-        self.entities = []
         count_entities = int(raw_input())
 
         for i in xrange(count_entities):
-            entity_id, entity_type, x, y, vx, vy, state = raw_input().split()
-            if entity_type == "WIZARD":
-                self.wizards.append(Entity(entity_id, entity_type, x, y, vx, vy, state, 400, 10**6, 1.0, 0.75))
+            self.add_raw_input(raw_input())
 
-            elif entity_type == "OPPONENT_WIZARD":
-                self.opponents.append(Entity(entity_id, entity_type, x, y, vx, vy, state, 400, 10**6, 1.0,0.75))
 
-            elif entity_type == "SNAFFLE":
-                self.snaffles.append(Entity(entity_id, entity_type, x, y, vx, vy, state, 150, 10**6, 0.5, 0.9))
+    def add_raw_input(self, raw):
+        entity_id, entity_type, x, y, vx, vy, state = raw.split()
+        if entity_type == "WIZARD":
+            self.wizards.append(Entity(entity_id, entity_type, x, y, vx, vy, state, 400, 10**6, 1.0, 0.75))
 
-            elif entity_type == "BLUDGER":
-                self.bludgers.append(Entity(entity_id, entity_type, x, y, vx, vy, state, 200, 10**6, 8.0, 0.75))
+        elif entity_type == "OPPONENT_WIZARD":
+            self.opponents.append(Entity(entity_id, entity_type, x, y, vx, vy, state, 400, 10**6, 1.0,0.75))
+
+        elif entity_type == "SNAFFLE":
+            self.snaffles.append(Entity(entity_id, entity_type, x, y, vx, vy, state, 150, 10**6, 0.5, 0.9))
+
+        elif entity_type == "BLUDGER":
+            self.bludgers.append(Entity(entity_id, entity_type, x, y, vx, vy, state, 200, 10**6, 8.0, 0.75))
+
 
     def center(self):
         """ определяем центр игры"""
