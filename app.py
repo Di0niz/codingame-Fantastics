@@ -45,7 +45,7 @@ class Vec2:
         return self
 
     def cross(self, a):
-        self = Vec2(self.y, -self.x)
+        self = Vec2(a.y, -a.x)
 
     def distance(self, v):
         return math.hypot(self.x-v.x, self.y-v.y)
