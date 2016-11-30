@@ -44,7 +44,10 @@ class WorldTestCase (unittest.TestCase):
         wizards = w.wizards
 
         fw = w.wizards[0]
+        print s.find_snaffle(fw,None)
+
         sw = w.wizards[1]
+        print s.find_snaffle(sw,None)
 
         problem = s.find_problem()
 

@@ -186,20 +186,24 @@ class Entity:
 
         return (me.add(desired_velocity), desired_velocity, t.add(vt), vt)
 
-    def get_steer_dist_to_unit(self, target):
+    def get_steer_distance_to_unit(self, target):
         
-        me, vme, t, vt = self.position, self.velocity, target.position, target.velocity
-        d = me.distance(t) 
+        speed = self.steer_to_unit(target).lenght()
 
-        dd = vme.lenght()
-
-        while (d >= self.radius):
-            me, vme, t, vt = self.seek(me, vme, t, vt )
-
-            dd = dd + vme.lenght()
-            d = me.distance(t)
-        return dd
-
+        return self.position.distance(target.position)/speed
+        
+#        me, vme, t, vt = self.position, self.velocity, target.position, target.velocity
+#        d = me.distance(t) 
+#
+#        dd = vme.lenght()
+#
+#        while (d >= self.radius and False):
+#            me, vme, t, vt = self.seek(me, vme, t, vt )
+#
+#            dd = dd + vme.lenght()
+#            d = me.distance(t)
+#        return dd
+#
         
 
 
@@ -222,6 +226,9 @@ class Entity:
 
     def steer_to_unit(self, target):        
         return self.steer_to(target.position, target.velocity)
+        
+        
+
 
 class World:
     def __init__(self, my_team_raw):
@@ -232,11 +239,11 @@ class World:
         self.opponents = []
         self.bludgers = []
 
-#    def add_spell(self):
-#        self.spell = self.spell + 1
-#
-#    def make_spell(self):
-#        self.spell = self.spell - 20
+    def add_spell(self):
+        self.spell = self.spell + 1
+
+    def make_spell(self):
+        self.spell = self.spell - 20
 
     def __str__(self):
         s = "w = World(%d)" % self.my_team_id
@@ -392,7 +399,7 @@ class Strategy:
 
 
         if action[0] <= Strategy.MOVE:
-            command =  "MOVE %d %d %d %d" % (obj.x, obj.y, int(random.random()*50 + 100), action[0])
+            command =  "MOVE %d %d %d %d" % (obj.x, obj.y, 150, action[0])
 
         elif action[0] <= Strategy.THROW:
             command = "THROW %d %d %d %d" % (obj.x, obj.y, int(random.random()*200 + 300), action[0])
@@ -409,7 +416,7 @@ class Strategy:
         near_snaffle = None
         min_dist = 100000
         for snaffle in self.world.snaffles:
-            new_min = for_wizard.get_distance_to_unit(snaffle)
+            new_min = for_wizard.get_steer_distance_to_unit(snaffle)
 
             if (new_min < min_dist and (prev_snaffle == None or snaffle != prev_snaffle)):
                 near_snaffle = snaffle
