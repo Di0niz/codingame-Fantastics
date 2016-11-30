@@ -160,29 +160,16 @@ class EntityState:
 class Entity:
     """Описание класса игрока"""
 
-    def __init__(self, rawinput):
-        # entity_id: entity identifier
-        # entity_type: "WIZARD", "OPPONENT_WIZARD" or "SNAFFLE" (or "BLUDGER" after first league)
-        # x: position
-        # y: position
-        # vx: velocity
-        # vy: velocity
-        # state: 1 if the wizard is holding a Snaffle, 0 otherwise
-        if debug == True:
-            print >> sys.stderr, rawinput
-        entity_id, self.entity_type, x, y, vx, vy, state = rawinput.split()
-        self.entity_id = int(entity_id)
-        self.position = Vec2(int(x), int(y))
-        self.velocity = Vec2(int(vx),int(vy))
-        self.state = int(state)
-
-    def is_wizard(self):
-        return self.entity_type == "WIZARD"
-    def is_snaffle(self):
-        return self.entity_type == "SNAFFLE"
-
-    def is_bludger(self):
-        return self.entity_type == "BLUDGER"
+    def __init__(self, entity_id, entity_type, x, y, speed_x, speed_y, state, radius=100.0, max_speed = 150.0, mass=1.0, friction = 1.0):
+        self.entity_id      = int(entity_id)
+        self.entity_type    = entity_type
+        self.position       = Vec2(int(x), int(y))
+        self.velocity       = Vec2(int(speed_x),int(speed_y))
+        self.state          = int(state)
+        self.mass           = mass
+        self.radius         = radius
+        self.max_speed      = max_speed
+        self.friction       = friction
 
     def get_distance_to_unit(self, unit):
         return self.position.distance(unit.position)
@@ -213,7 +200,10 @@ class StrategyState:
 class World:
     def __init__(self, my_team_raw):
         self.my_team_id = int(my_team_raw)
-        self.entities = []
+        self.wizards = []
+        self.snaffles = []
+        self.opponents = []
+        self.bludgers = []
 
 
     def read_raw_input(self):
@@ -221,25 +211,27 @@ class World:
         count_entities = int(raw_input())
 
         for i in xrange(count_entities):
-            self.entities.append(Entity(raw_input()))
+            entity_id, entity_type, x, y, vx, vy, state = raw_input().split()
+            if entity_type == "WIZARD":
+                self.wizards.append(Entity(entity_id, entity_type, x, y, vx, vy, state, 400, 10**6, 1.0, 0.75))
 
-    def wizards(self):
-        return filter(lambda x: x.is_wizard(), self.entities)
-        
-    def snaffles(self):
-        return filter(lambda x: x.is_snaffle(), self.entities)
+            elif entity_type == "OPPONENT_WIZARD":
+                self.opponents.append(Entity(entity_id, entity_type, x, y, vx, vy, state, 400, 10**6, 1.0,0.75))
 
-    def bludgers(self):
-        return filter(lambda x: x.is_bludger(), self.entities)
+            elif entity_type == "SNAFFLE":
+                self.snaffles.append(Entity(entity_id, entity_type, x, y, vx, vy, state, 150, 10**6, 0.5, 0.9))
+
+            elif entity_type == "BLUDGER":
+                self.bludgers.append(Entity(entity_id, entity_type, x, y, vx, vy, state, 200, 10**6, 8.0, 0.75))
 
     def center(self):
         """ определяем центр игры"""
-        return Entity("0 CENTER 8000 3750 0 0 0")
+        return Vec2(8000, 3750)  # Entity("0 CENTER 8000 3750 0 0 0")
 
     def opponent_gate(self, wizard):
         """ определяем центр игры"""
 
-        return Entity("0 GATE %d %d 0 0 0" % (16000 if self.my_team_id == 0 else 0, min(max(wizard.position.y,3750 - 800),3750 + 800)))
+        return Vec2(16000 if self.my_team_id == 0 else 0, min(max(wizard.position.y, 3750 - 800),3750 + 800)) # Entity("0 GATE %d %d 0 0 0" % (16000 if self.my_team_id == 0 else 0, min(max(wizard.position.y, 3750 - 800),3750 + 800)))
 
 class Strategy:
     def __init__(self,w):
@@ -263,7 +255,7 @@ class Strategy:
         (StrategyState.MOVE, StrategyState.HOLDING_SNAFFLE, check_holding, [wizard]),
         (StrategyState.MOVE, StrategyState.FIND_BLUDGER, not_none, [near_bludger]),
         (StrategyState.MOVE, StrategyState.FIND_SNAFFLE, not_none, [near_snaffle]),
-        (StrategyState.MOVE, StrategyState.FIND_SNAFFLE_ONE, is_true, [len(self.world.snaffles())==1]),
+        (StrategyState.MOVE, StrategyState.FIND_SNAFFLE_ONE, is_true, [len(self.world.snaffles)==1]),
         (StrategyState.MOVE, StrategyState.MOVE_FORWARD, None, self.world.center()),
         (StrategyState.FIND_BLUDGER, StrategyState.MOVE_BLUDGER, None, near_bludger),
         (StrategyState.FIND_SNAFFLE, StrategyState.MOVE_SNAFFLE, None, near_snaffle),
@@ -295,17 +287,22 @@ class Strategy:
 
     def get_command(self, action):
         command = ""
-        if action[0] <= StrategyState.MOVE:
+
+        if type(action[1]) is Vec2:
             obj = action[1]
-            command =  "MOVE %d %d %d" % (obj.position.x, obj.position.y, int(random.random()*50 + 100))
+        else:
+            obj = action[1].position
+
+
+        if action[0] <= StrategyState.MOVE:
+            command =  "MOVE %d %d %d" % (obj.x, obj.y, int(random.random()*50 + 100))
 
         elif action[0] <= StrategyState.THROW:
-            obj = action[1] 
-            command = "THROW %d %d %d" % (obj.position.x, obj.position.y, int(random.random()*200 + 300))
+            command = "THROW %d %d %d" % (obj.x, obj.y, int(random.random()*200 + 300))
 
         else:
             obj = self.world.center()
-            command =  "MOVE %d %d %d" % (obj.position.x, obj.position.y, int(random.random()*50 + 100))
+            command =  "MOVE %d %d %d" % (obj.x, obj.y, int(random.random()*50 + 100))
         
         return command
            
@@ -314,7 +311,7 @@ class Strategy:
         """ ищем ближайший мяч для волшебника """
         near_snaffle = None
         min_dist = 100000
-        for snaffle in self.world.snaffles():
+        for snaffle in self.world.snaffles:
             new_min = for_wizard.get_distance_to_unit(snaffle)
 
             if (new_min < min_dist and (prev_snaffle == None or snaffle != prev_snaffle)):
@@ -327,7 +324,7 @@ class Strategy:
         """ ищем ближайший мяч для волшебника """
         near_object = None
         min_dist = 100000
-        for snaffle in self.world.bludgers():
+        for snaffle in self.world.bludgers:
             new_min = for_wizard.get_distance_to_unit(snaffle)
 
             if (new_min < min_dist and new_min < 500):
@@ -346,13 +343,10 @@ if __name__ == '__main__':
     while True:
 
         w.read_raw_input()
-        #w.move()
 
         s = Strategy(w)
 
-        wizards = w.wizards()
-
-        actions = {}
+        wizards = w.wizards
 
         fw = wizards[0]
         sw = wizards[1]
@@ -362,10 +356,9 @@ if __name__ == '__main__':
 
         if faction[0] == saction[0] and faction[0] == StrategyState.MOVE_SNAFFLE:
             if fw.get_distance_to_unit(faction[1]) > fw.get_distance_to_unit(saction[1]):
-                fw,sw = sw,fw
-                faction = saction
-
-        saction = s.find_action(StrategyState.MOVE, sw, faction)
+                faction = s.find_action(StrategyState.MOVE, fw, saction)
+            else:
+                saction = s.find_action(StrategyState.MOVE, sw, faction)
 
         fcommand = s.get_command(faction)
         scommand = s.get_command(saction)
