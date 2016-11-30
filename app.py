@@ -54,10 +54,8 @@ class Vec2:
         projection = self.dot(unit_basis)
         return unit_basis.mult(projection)
 
-    def truncate_lenght(self, max_length):
-        length = self.lenght()
-        math.fabs(max_length)
-
+    def truncate(self, max_length):
+        length = self.lenght()        
         if (length > math.fabs(max_length)):
             return self.mult( max_length / length)
         return self
@@ -81,13 +79,16 @@ class Vec2:
         offset = point.sub(line_origin)
         perp = offset.perpendicular_component(line_unit_tangent)
 
-        return perp.length()
+        return perp.lenght()
+
+    def abs(self):
+        return Vec2(self.x if self.x > 0 else -self.x, self.y if self.y > 0 else -self.y)
 
     def __repr__(self):
-        return "Vec2"
+        return "(%d,%d)" % (self.x,self.y)
 
     def __str__(self):
-        return "(%f,%f)" % (self.x,self.y)
+        return "(%d,%d)" % (self.x,self.y)
 
 
 
@@ -111,7 +112,7 @@ class Vec2:
 
 
     def vec_limit_deviation_angle_utility(self,insideOrOutside,source,cosineOfConeAngle,basis):
-        sourceLength = source.length()
+        sourceLength = source.lenght()
 
         if (sourceLength == 0): 
             return source
@@ -150,13 +151,6 @@ class Vec2:
     def forward():
         return Vec2(0,1)
 
-
-
-class EntityState:
-    """Описание состояния игрока"""
-    HOLDING = 1
-    OTHER = 0
-
 class Entity:
     """Описание класса игрока"""
 
@@ -174,13 +168,132 @@ class Entity:
     def get_distance_to_unit(self, unit):
         return self.position.distance(unit.position)
 
+    def __str__(self):
+        return "Entity('%d','%s','%d','%d','%d','%d','%d',%d,%d,%d,%d)" % (
+            self.entity_id, self.entity_type, self.position.x, self.position.y, self.velocity.x, self.velocity.y, self.state, self.radius, self.max_speed, self.mass, self.friction)
+    def __repr__(self):
+        return "Entity('%d','%s','%d','%d','%d','%d','%d',%d,%d,%d,%d)" % (
+            self.entity_id, self.entity_type, self.position.x, self.position.y, self.velocity.x, self.velocity.y, self.state, self.radius, self.max_speed, self.mass, self.friction)
 
-class StategyProblem:
-    """Описываем список задач, которые может решить стратегия"""
-    THROW_SNAFFLE = 10
+    def seek(self, me, vme, t, vt):
+        
+        max_velocity = vme.truncate(self.max_speed).lenght()
 
-class StrategyState:
+        future_t = t.add(vt.mult(3))
 
+        desired_velocity = future_t.sub(me).normalize().mult(max_velocity)
+    #    steering = desired_velocity.sub(vi)   
+
+        return (me.add(desired_velocity), desired_velocity, t.add(vt), vt)
+
+    def get_steer_dist_to_unit(self, target):
+        
+        me, vme, t, vt = self.position, self.velocity, target.position, target.velocity
+        d = me.distance(t) 
+
+        dd = vme.lenght()
+
+        while (d >= self.radius):
+            me, vme, t, vt = self.seek(me, vme, t, vt )
+
+            dd = dd + vme.lenght()
+            d = me.distance(t)
+        return dd
+
+        
+
+
+    def steer_to(self, t, vt = None):
+        if vt == None:
+            vt = Vec2.zero()
+
+        # desired_velocity = normalize(target - position) * max_velocity
+        # steering = desired_velocity - velocity  
+        # 
+        #           
+
+        
+        future_t = t
+        desired_velocity = future_t.sub(self.position).normalize().mult(self.max_speed)
+
+        steering = desired_velocity.sub(self.velocity)
+
+        return self.position.add(desired_velocity)
+
+    def steer_to_unit(self, target):        
+        return self.steer_to(target.position, target.velocity)
+
+class World:
+    def __init__(self, my_team_raw):
+        self.my_team_id = int(my_team_raw)
+        self.spell = 0
+        self.wizards = []
+        self.snaffles = []
+        self.opponents = []
+        self.bludgers = []
+
+#    def add_spell(self):
+#        self.spell = self.spell + 1
+#
+#    def make_spell(self):
+#        self.spell = self.spell - 20
+
+    def __str__(self):
+        s = "w = World(%d)" % self.my_team_id
+        for el in self.wizards:
+            s = s + "\nself.wizards.append(%s)" % el
+        for el in self.snaffles:
+            s = s + "\nself.snaffles.append(%s)" % el
+        for el in self.opponents:
+            s = s + "\nself.opponents.append(%s)" % el
+        for el in self.bludgers:
+            s = s + "\nself.bludgers.append(%s)" % el
+        return s
+
+    def read_raw_input(self):
+        self.wizards = []
+        self.snaffles = []
+        self.opponents = []
+        self.bludgers = []
+        
+        count_entities = int(raw_input())
+
+        for i in xrange(count_entities):
+            self.add_raw_input(raw_input())
+
+ #       if debug:
+ #           print >> sys.stderr, self
+
+    def add_raw_input(self, raw):
+#        if debug:
+#            print >> sys.stderr, raw
+        entity_id, entity_type, x, y, vx, vy, state = raw.split()
+        if entity_type == "WIZARD":
+            if debug:
+                print >> sys.stderr, raw.split()
+            self.wizards.append(Entity(entity_id, entity_type, x, y, vx, vy, state, 400, 150, 1.0, 0.75))
+
+        elif entity_type == "OPPONENT_WIZARD":
+            self.opponents.append(Entity(entity_id, entity_type, x, y, vx, vy, state, 400, 150, 1.0,0.75))
+
+        elif entity_type == "SNAFFLE":
+            self.snaffles.append(Entity(entity_id, entity_type, x, y, vx, vy, state, 150, 500, 0.5, 0.9))
+
+        elif entity_type == "BLUDGER":
+            self.bludgers.append(Entity(entity_id, entity_type, x, y, vx, vy, state, 200, 300, 8.0, 0.75))
+
+
+    def center(self):
+        """ определяем центр игры"""
+        return Vec2(8000, 3750)  # Entity("0 CENTER 8000 3750 0 0 0")
+
+    def opponent_gate(self, wizard):
+        """ определяем центр игры"""
+
+        return Vec2(16000 if self.my_team_id == 0 else 0, min(max(wizard.position.y, 3750 - 800),3750 + 800)) # Entity("0 GATE %d %d 0 0 0" % (16000 if self.my_team_id == 0 else 0, min(max(wizard.position.y, 3750 - 800),3750 + 800)))
+
+class Strategy:
+    
     MOVE_SNAFFLE = 40
     MOVE_FORWARD = 45
     MOVE_BLUDGER = 50
@@ -194,79 +307,48 @@ class StrategyState:
     FIND_SNAFFLE = 1110
     FIND_SNAFFLE_ONE = 1115
     FIND_BLUDGER = 1120
-    CAN_THROW = 1110
+    CAN_THROW = 1190
 
-
-class World:
-    def __init__(self, my_team_raw):
-        self.my_team_id = int(my_team_raw)
-        self.wizards = []
-        self.snaffles = []
-        self.opponents = []
-        self.bludgers = []
-
-
-    def read_raw_input(self):
-        count_entities = int(raw_input())
-
-        for i in xrange(count_entities):
-            self.add_raw_input(raw_input())
-
-
-    def add_raw_input(self, raw):
-        entity_id, entity_type, x, y, vx, vy, state = raw.split()
-        if entity_type == "WIZARD":
-            self.wizards.append(Entity(entity_id, entity_type, x, y, vx, vy, state, 400, 10**6, 1.0, 0.75))
-
-        elif entity_type == "OPPONENT_WIZARD":
-            self.opponents.append(Entity(entity_id, entity_type, x, y, vx, vy, state, 400, 10**6, 1.0,0.75))
-
-        elif entity_type == "SNAFFLE":
-            self.snaffles.append(Entity(entity_id, entity_type, x, y, vx, vy, state, 150, 10**6, 0.5, 0.9))
-
-        elif entity_type == "BLUDGER":
-            self.bludgers.append(Entity(entity_id, entity_type, x, y, vx, vy, state, 200, 10**6, 8.0, 0.75))
-
-
-    def center(self):
-        """ определяем центр игры"""
-        return Vec2(8000, 3750)  # Entity("0 CENTER 8000 3750 0 0 0")
-
-    def opponent_gate(self, wizard):
-        """ определяем центр игры"""
-
-        return Vec2(16000 if self.my_team_id == 0 else 0, min(max(wizard.position.y, 3750 - 800),3750 + 800)) # Entity("0 GATE %d %d 0 0 0" % (16000 if self.my_team_id == 0 else 0, min(max(wizard.position.y, 3750 - 800),3750 + 800)))
-
-class Strategy:
+    PROBLEM_MOVE    = 1200
+    PROBLEM_ONEBALL = 1210
+    PROBLEM_ENEMY_AT_GATE = 1220
+        
     def __init__(self,w):
         self.world = w
     
     def get_rules(self, wizard, prev_action):
-        
-        prev_snaffle = None if prev_action == None or prev_action[0] != StrategyState.MOVE_SNAFFLE else prev_action[1] 
+
+        prev_snaffle = None if prev_action == None or prev_action[0] != Strategy.MOVE_SNAFFLE else prev_action[1] 
         near_snaffle = self.find_snaffle(wizard, prev_snaffle)
         near_bludger = self.find_bludger(wizard)
 
 
-        check_throw = lambda wizard, snaffle: wizard > snaffle
-        check_holding = lambda w : w.state == 1 
+        check_throw = lambda w, snaffle: w > snaffle
+        check_holding = lambda t : t.state == 1 
         not_none     = lambda t: t != None
         is_true      = lambda t: t == True
+
 
         #  Если мяч в руках, отобьем помечаю
         #  Если видим мяч, ты двигаемся к нему
         states = [
-        (StrategyState.MOVE, StrategyState.HOLDING_SNAFFLE, check_holding, [wizard]),
-        (StrategyState.MOVE, StrategyState.FIND_BLUDGER, not_none, [near_bludger]),
-        (StrategyState.MOVE, StrategyState.FIND_SNAFFLE, not_none, [near_snaffle]),
-        (StrategyState.MOVE, StrategyState.FIND_SNAFFLE_ONE, is_true, [len(self.world.snaffles)==1]),
-        (StrategyState.MOVE, StrategyState.MOVE_FORWARD, None, self.world.center()),
-        (StrategyState.FIND_BLUDGER, StrategyState.MOVE_BLUDGER, None, near_bludger),
-        (StrategyState.FIND_SNAFFLE, StrategyState.MOVE_SNAFFLE, None, near_snaffle),
-        (StrategyState.FIND_SNAFFLE_ONE, StrategyState.MOVE_SNAFFLE, None, prev_snaffle),
-        (StrategyState.HOLDING_SNAFFLE, StrategyState.THROW_SNAFFLE, None, self.world.opponent_gate(wizard), wizard),
+        (Strategy.PROBLEM_MOVE, Strategy.MOVE, None, None),
+        (Strategy.MOVE, Strategy.HOLDING_SNAFFLE, check_holding, [wizard]),
+        (Strategy.MOVE, Strategy.FIND_BLUDGER, not_none, [near_bludger]),
+        (Strategy.MOVE, Strategy.FIND_SNAFFLE, not_none, [near_snaffle]),
+        (Strategy.MOVE, Strategy.FIND_SNAFFLE_ONE, is_true, [len(self.world.snaffles)==1]),
+        (Strategy.MOVE, Strategy.MOVE_FORWARD, None, self.world.center()),
+        (Strategy.FIND_BLUDGER, Strategy.MOVE_BLUDGER, None, near_bludger),
+        (Strategy.FIND_SNAFFLE, Strategy.MOVE_SNAFFLE, None, near_snaffle),
+        (Strategy.FIND_SNAFFLE_ONE, Strategy.MOVE_SNAFFLE, None, prev_snaffle),
+        (Strategy.HOLDING_SNAFFLE, Strategy.THROW_SNAFFLE, None, self.world.opponent_gate(wizard)),
         ]
+
         return states
+
+    def find_problem(self):
+        """ ищу проблему которую пытаемся решить. По умолчанию это будет движение"""
+        return Strategy.PROBLEM_MOVE
 
     def find_action(self, state, for_wizard, prev_action = None):
         """Определяем правило, которое работало по набору состояний"""
@@ -274,35 +356,46 @@ class Strategy:
         current_rule = None
 
         rules = self.get_rules(for_wizard, prev_action)
+        
         params = []
-        while(state != prev_state):
 
-            for rule in rules:
-                if (rule[0] == state):
-                    # проверяем сработало правило или нет
-                    if rule[2] == None or rule[2](*rule[3]):
-                        state = rule[1]
-                        current_rule = rule
-                        
+#        if debug:
+#            print >> sys.stderr, "find_action"
+#            print >> sys.stderr, rules
+        
+        
+        while(state != prev_state):
             prev_state = state 
+
+            for rule in filter(lambda x: x[0] == state and (x[2] == None or x[2](*x[3])), rules):
+                state = rule[1]
+                current_rule = rule
+                break
+                        
+            
+#            if debug:
+#                print >> sys.stderr, rule
+
+#        if debug:
+#            print >> sys.stderr, rule
 
         return current_rule[1], current_rule[3]
 
 
-    def get_command(self, action):
+    def get_command(self, wizard, action):
         command = ""
 
-        if type(action[1]) is Vec2:
-            obj = action[1]
+        if isinstance(action[1],Vec2):
+            obj = wizard.steer_to(action[1])
         else:
-            obj = action[1].position
+            obj = wizard.steer_to_unit(action[1])
 
 
-        if action[0] <= StrategyState.MOVE:
-            command =  "MOVE %d %d %d" % (obj.x, obj.y, int(random.random()*50 + 100))
+        if action[0] <= Strategy.MOVE:
+            command =  "MOVE %d %d %d %d" % (obj.x, obj.y, int(random.random()*50 + 100), action[0])
 
-        elif action[0] <= StrategyState.THROW:
-            command = "THROW %d %d %d" % (obj.x, obj.y, int(random.random()*200 + 300))
+        elif action[0] <= Strategy.THROW:
+            command = "THROW %d %d %d %d" % (obj.x, obj.y, int(random.random()*200 + 300), action[0])
 
         else:
             obj = self.world.center()
@@ -343,6 +436,7 @@ if __name__ == '__main__':
     
     w = World(raw_input())
 
+
     # game loop
     while True:
 
@@ -352,20 +446,24 @@ if __name__ == '__main__':
 
         wizards = w.wizards
 
-        fw = wizards[0]
-        sw = wizards[1]
+        fw = w.wizards[0]
+        sw = w.wizards[1]
 
-        faction = s.find_action(StrategyState.MOVE, fw)
-        saction = s.find_action(StrategyState.MOVE, sw)
+        problem = s.find_problem()
 
-        if faction[0] == saction[0] and faction[0] == StrategyState.MOVE_SNAFFLE:
-            if fw.get_distance_to_unit(faction[1]) > fw.get_distance_to_unit(saction[1]):
-                faction = s.find_action(StrategyState.MOVE, fw, saction)
+        faction = s.find_action(problem, fw)
+        saction = s.find_action(problem, sw)
+
+        if faction[0] == saction[0] and faction[0] == Strategy.MOVE_SNAFFLE:
+            if fw.get_distance_to_unit(faction[1]) > sw.get_distance_to_unit(saction[1]):
+                faction = s.find_action(problem, fw, saction)
             else:
-                saction = s.find_action(StrategyState.MOVE, sw, faction)
+                saction = s.find_action(problem, sw, faction)
 
-        fcommand = s.get_command(faction)
-        scommand = s.get_command(saction)
+        fcommand = s.get_command(fw,faction)
+        scommand = s.get_command(sw,saction)
+
+        w.add_spell()
 
         print fcommand
         print scommand

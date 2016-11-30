@@ -18,11 +18,15 @@ class Vec2TestCase (unittest.TestCase):
         max_speed    = 40
         mass = 1.0
 
-        t = Vec2(40,100)
+        t = Vec2(5654,5192)
         vt = Vec2(30,0)
 
-        i = Vec2(0,0)
-        vi = Vec2(10,30)
+        i = Vec2(1269,5192)
+        vi = Vec2(128,-28)
+
+
+        #Entity('0','WIZARD','1269','5192','128','-28','1',400,150,1,0)
+        #Entity('4','SNAFFLE','5654','5192','0','0','0',150,500,0,0)
 
         
         position = i.add(vi).mult(3)
@@ -31,15 +35,15 @@ class Vec2TestCase (unittest.TestCase):
 
 
 
-#        velocity = t.sub(position).normalize().mult(100)
+        velocity = t.sub(position).normalize().mult(100)
 
-#        new_t = t
-#
-#        new_t = t.add(vt.mult(3))
-#
-#        desired_velocity = new_t.sub(i).normalize().mult(max_velocity)
-#        steering = desired_velocity.sub(vi)
-#
+        new_t = t
+
+        new_t = t.add(vt.mult(3))
+
+        desired_velocity = new_t.sub(i).normalize().mult(max_velocity)
+        steering = desired_velocity.sub(vi)
+
 
 
 #
