@@ -33,13 +33,13 @@ class Vec2TestCase (unittest.TestCase):
 
 #        velocity = t.sub(position).normalize().mult(100)
 
-        new_t = t
-
-        new_t = t.add(vt.mult(3))
-
-        desired_velocity = new_t.sub(i).normalize().mult(max_velocity)
-        steering = desired_velocity.sub(vi)
-
+#        new_t = t
+#
+#        new_t = t.add(vt.mult(3))
+#
+#        desired_velocity = new_t.sub(i).normalize().mult(max_velocity)
+#        steering = desired_velocity.sub(vi)
+#
 
 
 #
