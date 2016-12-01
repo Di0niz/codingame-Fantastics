@@ -467,11 +467,11 @@ class Strategy:
 
         gate = self.world.gate()
 
-        min_dist = 1000
+        min_dist = 10000
 
         accio = None
         for snaffle in self.world.snaffles:
-            t = snaffle.position
+            t = snaffle.position.add(snaffle.velocity)
             new_min = gate.distance(t)
 
             if new_min < min_dist and snaffle != prev_snaffle:
@@ -497,7 +497,7 @@ class Strategy:
         for snaffle in self.world.snaffles:
             t = snaffle.position
 
-            if math.fabs(t.x - cur_pos.x) > 10:
+            if math.fabs(t.x - cur_pos.x) > 1:
 
                 y = ((t.y - cur_pos.y)/(t.x - cur_pos.x)) * (gate.x - t.x) + t.y
 
@@ -554,6 +554,15 @@ if __name__ == '__main__':
                 faction = s.find_action(problem, fw, saction)
             else:
                 saction = s.find_action(problem, sw, faction)
+        elif faction[0] == Strategy.CAST_FLIPENDO:
+                saction = s.find_action(problem, sw, faction)
+        elif saction[0] == Strategy.CAST_FLIPENDO:
+                faction = s.find_action(problem, fw, saction)
+        elif faction[0] == Strategy.CAST_ACCIO:
+                saction = s.find_action(problem, sw, faction)
+        elif saction[0] == Strategy.CAST_ACCIO:
+                faction = s.find_action(problem, fw, saction)
+
 
         fcommand = s.get_command(fw,faction)
         scommand = s.get_command(sw,saction)

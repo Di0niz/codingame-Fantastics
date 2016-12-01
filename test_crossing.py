@@ -22,6 +22,9 @@ class Vec2TestCase (unittest.TestCase):
         p1 = Vec2(2,3)
         p2 = Vec2(15,15)
 
+        print p2.lenght()
+        print p1.distance(p2)
+
         gate1 = Vec2(10,8)
         gate2 = Vec2(10,12)
 
