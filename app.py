@@ -13,7 +13,7 @@ class Vec2:
     """Определение вектора для решения задачи по поиску"""
     def __init__(self, x=0.0, y = 0.0):
         self.x,self.y = x,y
-        
+
     def perpendicular_component(self, v):
         return self.sub(self.parallel_component(v))
 
@@ -30,7 +30,7 @@ class Vec2:
         return Vec2(self.x + v.x, self.y + v.y)
 
     def div(self, scalar):
-        return Vec2(self.x/scalar, self.y/scalar)
+        return Vec2(self.x*1.0/scalar, self.y*1.0/scalar)
 
     def mult(self, scalar):
         return Vec2(self.x*scalar, self.y*scalar)
@@ -57,7 +57,7 @@ class Vec2:
     def truncate(self, max_length):
         length = self.lenght()        
         if (length > math.fabs(max_length)):
-            return self.mult( max_length / length)
+            return self.mult( max_length * 1.0 / length)
         return self
 
     def set_y_zero(self):
@@ -192,21 +192,6 @@ class Entity:
 
         return self.position.distance(target.position)/speed
         
-#        me, vme, t, vt = self.position, self.velocity, target.position, target.velocity
-#        d = me.distance(t) 
-#
-#        dd = vme.lenght()
-#
-#        while (d >= self.radius and False):
-#            me, vme, t, vt = self.seek(me, vme, t, vt )
-#
-#            dd = dd + vme.lenght()
-#            d = me.distance(t)
-#        return dd
-#
-        
-
-
     def steer_to(self, t, vt = None):
         if vt == None:
             vt = Vec2.zero()
@@ -368,7 +353,7 @@ class Strategy:
         (Strategy.PROBLEM_MOVE, Strategy.MOVE, None, None),
         (Strategy.PROBLEM_ONEBALL, Strategy.MOVE, None, None),
         (Strategy.MOVE, Strategy.CAN_CAST_FLIPENDO, not_none, [flipendo]),
-        (Strategy.MOVE, Strategy.CAN_CAST_ACCIO, not_none, [accio]),
+        #(Strategy.MOVE, Strategy.CAN_CAST_ACCIO, not_none, [accio]),
         (Strategy.MOVE, Strategy.HOLDING_SNAFFLE, check_holding, [wizard]),
         (Strategy.MOVE, Strategy.FIND_BLUDGER, not_none, [near_bludger]),
         (Strategy.MOVE, Strategy.FIND_SNAFFLE, not_none, [near_snaffle]),
