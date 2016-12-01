@@ -219,14 +219,14 @@ class Entity:
         if (self.velocity.x ==0 and self.velocity.y ==0):
             return t
 
-        max_velocity = self.velocity.lenght()
+        max_velocity = self.max_speed
         
         future_t = t.add(vt.mult(2))
         desired_velocity = future_t.sub(self.position).normalize().mult(max_velocity)
 
         steering = desired_velocity.sub(self.velocity)
 
-        return self.position.add(self.velocity.add(steering))
+        return self.position.sub(steering)
 
     def steer_to_unit(self, target):        
         return self.steer_to(target.position, target.velocity)
@@ -282,16 +282,16 @@ class World:
         if entity_type == "WIZARD":
             if debug:
                 print >> sys.stderr, raw.split()
-            self.wizards.append(Entity(entity_id, entity_type, x, y, vx, vy, state, 400, 150, 1.0, 0.75))
+            self.wizards.append(Entity(entity_id, entity_type, x, y, vx, vy, state, 400, 300, 1.0, 0.75))
 
         elif entity_type == "OPPONENT_WIZARD":
-            self.opponents.append(Entity(entity_id, entity_type, x, y, vx, vy, state, 400, 150, 1.0,0.75))
+            self.opponents.append(Entity(entity_id, entity_type, x, y, vx, vy, state, 400, 300, 1.0,0.75))
 
         elif entity_type == "SNAFFLE":
-            self.snaffles.append(Entity(entity_id, entity_type, x, y, vx, vy, state, 150, 500, 0.5, 0.9))
+            self.snaffles.append(Entity(entity_id, entity_type, x, y, vx, vy, state, 150, 800, 0.5, 0.9))
 
         elif entity_type == "BLUDGER":
-            self.bludgers.append(Entity(entity_id, entity_type, x, y, vx, vy, state, 200, 300, 8.0, 0.75))
+            self.bludgers.append(Entity(entity_id, entity_type, x, y, vx, vy, state, 200, 600, 8.0, 0.75))
 
 
     def center(self):
@@ -427,7 +427,7 @@ class Strategy:
             command =  "MOVE %d %d %d %d" % (obj.x, obj.y, 150, action[0])
 
         elif action[0] <= Strategy.THROW:
-            command = "THROW %d %d %d %d" % (obj.x, obj.y, int(random.random()*200 + 300), action[0])
+            command = "THROW %d %d %d %d" % (obj.x, obj.y, int(random.random()*300 + 100), action[0])
 
         elif action[0] == Strategy.CAST_FLIPENDO:
             command = "FLIPENDO %d" % (action[1].entity_id)
@@ -495,9 +495,9 @@ class Strategy:
 
         flipendo = None
         for snaffle in self.world.snaffles:
-            t = snaffle.position
+            t = snaffle.position.add(snaffle.velocity)
 
-            if math.fabs(t.x - cur_pos.x) > 1:
+            if(gate.x > t.x > cur_pos.x or gate.x < t.x < cur_pos.x) :
 
                 y = ((t.y - cur_pos.y)/(t.x - cur_pos.x)) * (gate.x - t.x) + t.y
 
