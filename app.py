@@ -44,8 +44,8 @@ class Vec2:
             return self.div(lenght)
         return self
 
-    def cross(self, a):
-        self = Vec2(a.y, -a.x)
+    def cross(self):
+        return Vec2(self.y, -self.x)
 
     def distance(self, v):
         return math.hypot(self.x-v.x, self.y-v.y)
@@ -182,7 +182,7 @@ class Entity:
         future_t = t.add(vt.mult(3))
 
         desired_velocity = future_t.sub(me).normalize().mult(max_velocity)
-    #    steering = desired_velocity.sub(vi)   
+        steering = desired_velocity.sub(vi)   
 
         return (me.add(desired_velocity), desired_velocity, t.add(vt), vt)
 
@@ -216,13 +216,17 @@ class Entity:
         # 
         #           
 
+        if (self.velocity.x ==0 and self.velocity.y ==0):
+            return t
+
+        max_velocity = self.velocity.lenght()
         
-        future_t = t
-        desired_velocity = future_t.sub(self.position).normalize().mult(self.max_speed)
+        future_t = t.add(vt.mult(2))
+        desired_velocity = future_t.sub(self.position).normalize().mult(max_velocity)
 
         steering = desired_velocity.sub(self.velocity)
 
-        return self.position.add(desired_velocity)
+        return self.position.add(self.velocity.add(steering))
 
     def steer_to_unit(self, target):        
         return self.steer_to(target.position, target.velocity)
@@ -294,10 +298,24 @@ class World:
         """ определяем центр игры"""
         return Vec2(8000, 3750)  # Entity("0 CENTER 8000 3750 0 0 0")
 
-    def opponent_gate(self, wizard):
+    def opponent_gate(self, wizard = None):
         """ определяем центр игры"""
+        
+        center = 3750
+        if (wizard != None):
+            center =  min(max(wizard.position.y, center - 800),3750 + 800)
 
-        return Vec2(16000 if self.my_team_id == 0 else 0, min(max(wizard.position.y, 3750 - 800),3750 + 800)) # Entity("0 GATE %d %d 0 0 0" % (16000 if self.my_team_id == 0 else 0, min(max(wizard.position.y, 3750 - 800),3750 + 800)))
+        return Vec2(16000 if self.my_team_id == 0 else 0, center)
+
+    def gate(self, wizard = None):
+        """ определяем центр игры"""
+        
+        center = 3750
+        if (wizard != None):
+            center =  min(max(wizard.position.y, center - 800),3750 + 800)
+
+        return Vec2(16000 if self.my_team_id == 1 else 0, center)
+
 
 class Strategy:
     
@@ -309,6 +327,17 @@ class Strategy:
 
     THROW_SNAFFLE = 110
     THROW = 200
+
+    CAST_OBLIVIATE  = 220
+    CAST_PETRIFICUS = 230
+    CAST_ACCIO      = 240
+    CAST_FLIPENDO   = 250
+    
+    CAN_CAST_OBLIVIATE  = 1220
+    CAN_CAST_PETRIFICUS = 1230
+    CAN_CAST_ACCIO      = 1240
+    CAN_CAST_FLIPENDO   = 1250
+
 
     HOLDING_SNAFFLE = 1100
     FIND_SNAFFLE = 1110
@@ -328,6 +357,8 @@ class Strategy:
         prev_snaffle = None if prev_action == None or prev_action[0] != Strategy.MOVE_SNAFFLE else prev_action[1] 
         near_snaffle = self.find_snaffle(wizard, prev_snaffle)
         near_bludger = self.find_bludger(wizard)
+        accio        = self.find_accio_snaffle(wizard, prev_snaffle)
+        flipendo     = self.find_flipendo_snaffle(wizard, prev_snaffle)
 
 
         check_throw = lambda w, snaffle: w > snaffle
@@ -340,6 +371,8 @@ class Strategy:
         #  Если видим мяч, ты двигаемся к нему
         states = [
         (Strategy.PROBLEM_MOVE, Strategy.MOVE, None, None),
+        (Strategy.MOVE, Strategy.CAN_CAST_ACCIO, not_none, [accio]),
+        (Strategy.MOVE, Strategy.CAN_CAST_FLIPENDO, not_none, [flipendo]),
         (Strategy.MOVE, Strategy.HOLDING_SNAFFLE, check_holding, [wizard]),
         (Strategy.MOVE, Strategy.FIND_BLUDGER, not_none, [near_bludger]),
         (Strategy.MOVE, Strategy.FIND_SNAFFLE, not_none, [near_snaffle]),
@@ -349,6 +382,8 @@ class Strategy:
         (Strategy.FIND_SNAFFLE, Strategy.MOVE_SNAFFLE, None, near_snaffle),
         (Strategy.FIND_SNAFFLE_ONE, Strategy.MOVE_SNAFFLE, None, prev_snaffle),
         (Strategy.HOLDING_SNAFFLE, Strategy.THROW_SNAFFLE, None, self.world.opponent_gate(wizard)),
+        (Strategy.CAN_CAST_ACCIO,Strategy.CAST_ACCIO,None, accio),
+        (Strategy.CAN_CAST_FLIPENDO,Strategy.CAST_FLIPENDO,None, flipendo)
         ]
 
         return states
@@ -366,25 +401,15 @@ class Strategy:
         
         params = []
 
-#        if debug:
-#            print >> sys.stderr, "find_action"
-#            print >> sys.stderr, rules
-        
-        
         while(state != prev_state):
             prev_state = state 
 
-            for rule in filter(lambda x: x[0] == state and (x[2] == None or x[2](*x[3])), rules):
+            filter_rules = filter(lambda x: x[0] == state and (x[2] == None or x[2](*x[3])), rules)
+
+            for rule in filter_rules:
                 state = rule[1]
                 current_rule = rule
                 break
-                        
-            
-#            if debug:
-#                print >> sys.stderr, rule
-
-#        if debug:
-#            print >> sys.stderr, rule
 
         return current_rule[1], current_rule[3]
 
@@ -403,6 +428,14 @@ class Strategy:
 
         elif action[0] <= Strategy.THROW:
             command = "THROW %d %d %d %d" % (obj.x, obj.y, int(random.random()*200 + 300), action[0])
+
+        elif action[0] == Strategy.CAST_FLIPENDO:
+            command = "FLIPENDO %d" % (action[1].entity_id)
+            self.world.make_spell()
+
+        elif action[0] == Strategy.CAST_ACCIO:
+            command = "ACCIO %d" % (action[1].entity_id)
+            self.world.make_spell()
 
         else:
             obj = self.world.center()
@@ -423,6 +456,61 @@ class Strategy:
                 min_dist = new_min
 
         return near_snaffle
+
+        
+
+    def find_accio_snaffle(self, for_wizard, prev_snaffle):
+        """ ищем ближайший мяч для волшебника """
+
+        if (self.world.spell < 20):
+            return None
+
+        gate = self.world.gate()
+
+        min_dist = 1000
+
+        accio = None
+        for snaffle in self.world.snaffles:
+            t = snaffle.position
+            new_min = gate.distance(t)
+
+            if new_min < min_dist and snaffle != prev_snaffle:
+                accio = snaffle
+                min_dist = new_min
+
+        return accio
+
+    def find_flipendo_snaffle(self, for_wizard, prev_snaffle):
+        """ ищем ближайший мяч для волшебника """
+
+        if (self.world.spell < 20):
+            return None
+
+
+        cur_pos = for_wizard.position.add(for_wizard.velocity)
+
+        gate = self.world.opponent_gate()
+
+        min_dist = 100000
+
+        flipendo = None
+        for snaffle in self.world.snaffles:
+            t = snaffle.position
+
+            if math.fabs(t.x - cur_pos.x) > 10:
+
+                y = ((t.y - cur_pos.y)/(t.x - cur_pos.x)) * (gate.x - t.x) + t.y
+
+                new_min = for_wizard.get_distance_to_unit(snaffle)
+
+                if new_min < min_dist and (2500 < y <4500) and snaffle != prev_snaffle:
+                    flipendo = snaffle
+                    min_dist = new_min
+
+        return flipendo
+
+
+
 
     def find_bludger(self, for_wizard):
         """ ищем ближайший мяч для волшебника """
