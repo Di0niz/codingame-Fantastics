@@ -182,7 +182,7 @@ class Entity:
         future_t = t.add(vt.mult(3))
 
         desired_velocity = future_t.sub(me).normalize().mult(max_velocity)
-        steering = desired_velocity.sub(vi)   
+        #steering = desired_velocity.sub(vi)   
 
         return (me.add(desired_velocity), desired_velocity, t.add(vt), vt)
 
@@ -211,22 +211,17 @@ class Entity:
         if vt == None:
             vt = Vec2.zero()
 
-        # desired_velocity = normalize(target - position) * max_velocity
-        # steering = desired_velocity - velocity  
-        # 
-        #           
-
         if (self.velocity.x ==0 and self.velocity.y ==0):
             return t
 
-        max_velocity = self.max_speed
+        max_velocity = 800
         
-        future_t = t.add(vt.mult(2))
+        future_t = t.add(vt.mult(2.0))
         desired_velocity = future_t.sub(self.position).normalize().mult(max_velocity)
 
-        steering = desired_velocity.sub(self.velocity)
+        steering = desired_velocity.sub(self.velocity).normalize().mult(max_velocity)
 
-        return self.position.sub(steering)
+        return self.position.add(steering)
 
     def steer_to_unit(self, target):        
         return self.steer_to(target.position, target.velocity)
@@ -371,8 +366,9 @@ class Strategy:
         #  Если видим мяч, ты двигаемся к нему
         states = [
         (Strategy.PROBLEM_MOVE, Strategy.MOVE, None, None),
-        (Strategy.MOVE, Strategy.CAN_CAST_ACCIO, not_none, [accio]),
+        (Strategy.PROBLEM_ONEBALL, Strategy.MOVE, None, None),
         (Strategy.MOVE, Strategy.CAN_CAST_FLIPENDO, not_none, [flipendo]),
+        (Strategy.MOVE, Strategy.CAN_CAST_ACCIO, not_none, [accio]),
         (Strategy.MOVE, Strategy.HOLDING_SNAFFLE, check_holding, [wizard]),
         (Strategy.MOVE, Strategy.FIND_BLUDGER, not_none, [near_bludger]),
         (Strategy.MOVE, Strategy.FIND_SNAFFLE, not_none, [near_snaffle]),
@@ -390,7 +386,11 @@ class Strategy:
 
     def find_problem(self):
         """ ищу проблему которую пытаемся решить. По умолчанию это будет движение"""
-        return Strategy.PROBLEM_MOVE
+        problem = Strategy.PROBLEM_MOVE
+        if len(self.world.snaffles) == 1:        
+            Strategy.PROBLEM_ONEBALL
+
+        return problem
 
     def find_action(self, state, for_wizard, prev_action = None):
         """Определяем правило, которое работало по набору состояний"""
@@ -427,7 +427,7 @@ class Strategy:
             command =  "MOVE %d %d %d %d" % (obj.x, obj.y, 150, action[0])
 
         elif action[0] <= Strategy.THROW:
-            command = "THROW %d %d %d %d" % (obj.x, obj.y, int(random.random()*300 + 100), action[0])
+            command = "THROW %d %d %d %d" % (obj.x, obj.y, 500, action[0])
 
         elif action[0] == Strategy.CAST_FLIPENDO:
             command = "FLIPENDO %d" % (action[1].entity_id)
@@ -491,21 +491,26 @@ class Strategy:
 
         gate = self.world.opponent_gate()
 
-        min_dist = 100000
+        min_dist = 4000
 
         flipendo = None
+
         for snaffle in self.world.snaffles:
             t = snaffle.position.add(snaffle.velocity)
 
             if(gate.x > t.x > cur_pos.x or gate.x < t.x < cur_pos.x) :
 
-                y = ((t.y - cur_pos.y)/(t.x - cur_pos.x)) * (gate.x - t.x) + t.y
+                y = ((t.y - cur_pos.y) * 1.0/(t.x - cur_pos.x)) * (gate.x - t.x) + t.y
 
-                new_min = for_wizard.get_distance_to_unit(snaffle)
 
-                if new_min < min_dist and (2500 < y <4500) and snaffle != prev_snaffle:
+                dist = for_wizard.get_distance_to_unit(snaffle)
+
+                # if new_min < min_dist and
+                if (2300 < y < 5200) and snaffle != prev_snaffle and (600 < dist <  3000):
                     flipendo = snaffle
-                    min_dist = new_min
+                    #min_dist = new_min
+                    if debug:
+                        print >> sys.stderr, "flippendo %s %d %s" % (for_wizard, y, snaffle)                
 
         return flipendo
 
@@ -563,6 +568,10 @@ if __name__ == '__main__':
         elif saction[0] == Strategy.CAST_ACCIO:
                 faction = s.find_action(problem, fw, saction)
 
+#        if debug:
+#            print >> sys.stderr, w
+#            print >> sys.stderr, fw
+#            print >> sys.stderr, sw
 
         fcommand = s.get_command(fw,faction)
         scommand = s.get_command(sw,saction)

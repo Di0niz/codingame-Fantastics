@@ -3,80 +3,68 @@ import math
 import unittest
 
 import app
-from app import World, Strategy
+from app import World, Strategy,Entity
 
 
 class WorldTestCase (unittest.TestCase):
     
-    def setUp(self):
-        self.w = app.World("1")
+    def test_flipendo(self):
+        w = World(0)
+        w.wizards.append(Entity('0','WIZARD','9802','1566','397','130','0',400,300,1,0))
+#        w.wizards.append(Entity('1','WIZARD','12384','4952','-340','66','0',400,300,1,0))
+        w.snaffles.append(Entity('4','SNAFFLE','11957','3265','2','2','0',150,800,0,0))
+#        w.snaffles.append(Entity('6','SNAFFLE','12778','4928','-463','1126','0',150,800,0,0))
+#        w.opponents.append(Entity('2','OPPONENT_WIZARD','11526','3317','54','187','0',400,300,1,0))
+#        w.opponents.append(Entity('3','OPPONENT_WIZARD','14275','4284','466','104','0',400,300,1,0))
+#        w.bludgers.append(Entity('9','BLUDGER','12895','3847','-207','238','0',200,600,8,0))
+#        w.bludgers.append(Entity('10','BLUDGER','13077','5465','-340','72','0',200,600,8,0))
 
-        self.w.add_raw_input("0 WIZARD 1269 5192 128 -28 1")
-        self.w.add_raw_input("1 WIZARD 1269 2308 128 28 0")
-        self.w.add_raw_input("2 OPPONENT_WIZARD 14733 2189 -128 -30 0")
-        self.w.add_raw_input("3 OPPONENT_WIZARD 14727 5220 -131 -14 0")
-        self.w.add_raw_input("4 SNAFFLE 5654 5192 0 0 0")
-        self.w.add_raw_input("5 SNAFFLE 10346 2816 0 0 0")
-        self.w.add_raw_input("6 SNAFFLE 2563 5610 0 0 0")
-        self.w.add_raw_input("7 SNAFFLE 13437 1890 0 0 0")
-        self.w.add_raw_input("8 SNAFFLE 3770 4797 0 0 0")
-        self.w.add_raw_input("9 SNAFFLE 12230 2703 0 0 0")
-        self.w.add_raw_input("10 SNAFFLE 8000 3750 0 0 0")      
-        
 
-    def test_steer(self):
-        
-        w  = self.w.wizards[0]
-
-        snaffle = self.w.snaffles[0]
-        print w
-        print snaffle
-        print w.steer_to_unit(snaffle)
-
-        for sh in self.w.snaffles:
-            print w.get_steer_dist_to_unit(sh)
-            print w.steer_to_unit(sh)
-
-    def test_strategy(self):
-        w = self.w
         s = Strategy(w)
 
-        wizards = w.wizards
+        flipendo = s.find_flipendo_snaffle(w.wizards[0], None)
+        print flipendo
+        print w.wizards[0], w.snaffles[0]
 
-        fw = w.wizards[0]
-        print s.find_snaffle(fw,None)
+        prev_snaffle = None
 
-        sw = w.wizards[1]
-        print s.find_snaffle(sw,None)
-
-        problem = s.find_problem()
-
-        faction = s.find_action(problem, fw)
-        saction = s.find_action(problem, sw)
-
-        if faction[0] == saction[0] and faction[0] == Strategy.MOVE_SNAFFLE:
-            if fw.get_distance_to_unit(faction[1]) > sw.get_distance_to_unit(saction[1]):
-                faction = s.find_action(problem, fw, saction)
-            else:
-                saction = s.find_action(problem, sw, faction)
-
-        fcommand = s.get_command(fw,faction)
-        scommand = s.get_command(sw,saction)
-
-        w.add_spell()
-
-        print fcommand
-        print scommand        
+        for_wizard, snaffle = w.wizards[0], w.snaffles[0]
 
 
+        cur_pos = for_wizard.position.add(for_wizard.velocity)
+        print cur_pos
+
+        gate = w.opponent_gate()
+        print gate
+
+        min_dist = 4000
+
+        flipendo = None
+
+        for snaffle in w.snaffles:
+            t = snaffle.position.add(snaffle.velocity)
+            print t
 
 
+            if(gate.x > t.x > cur_pos.x or gate.x < t.x < cur_pos.x) :
 
-class EntityTestCase (unittest.TestCase):
-    
-    def test_init(self):
-        pass
+                y = (((t.y - cur_pos.y)*1.0/(t.x - cur_pos.x)) * (gate.x - t.x)) + t.y
 
+                dy = (t.y - cur_pos.y)
+                dx = (t.x - cur_pos.x)
+                gx = (gate.x - t.x)
+
+                print dy/dx
+
+                print (t.y - cur_pos.y), (t.x - cur_pos.x),  (gate.x - t.x),  t.y
+                print y
+
+                dist = for_wizard.get_distance_to_unit(snaffle)
+
+                # if new_min < min_dist and
+                if (2100 < y < 5400) and snaffle != prev_snaffle and (400 < dist <  3000):
+                    flipendo = snaffle
+                    #min_dist = new_min
 
 
 if __name__ == '__main__':
