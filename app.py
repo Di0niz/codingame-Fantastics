@@ -205,7 +205,7 @@ class World:
             Strategy.CAST_ACCIO: (20, 6),
             Strategy.CAST_FLIPENDO: (20, 3),
             Strategy.CAST_OBLIVIATE: (5, 1),
-            Strategy.CAST_ACCIO: (10, 3)
+            Strategy.CAST_PETRIFICUS: (10, 3)
             }
         return spells[spell]
 
@@ -213,7 +213,6 @@ class World:
         """Делаем заклинание"""
 
         cost, time = self.spell_cost(spell)
-
         self.spell = self.spell - cost
 
         self.current_spell.append((spell, wizard.entity_id, target.entity_id, time))
@@ -361,6 +360,8 @@ class Strategy:
     FIND_SNAFFLE = 1110
     FIND_SNAFFLE_ONE = 1115
     FIND_BLUDGER = 1120
+    NEAR_ENEMY = 1150
+
     CAN_THROW = 1190
 
     PROBLEM_MOVE = 1200
@@ -377,13 +378,15 @@ class Strategy:
         near_bludger = self.find_bludger(wizard)
         accio = self.find_accio_snaffle(wizard, prev_snaffle)
         flipendo = self.find_flipendo_snaffle(wizard, prev_snaffle)
+        near_enemy = self.find_enemy(near_snaffle)
 
 
         check_throw = lambda w, snaffle: w > snaffle
-        check_holding = lambda t : t.state == 1
+        check_holding = lambda t: t.state == 1
         not_none = lambda t: t != None
         is_true = lambda t: t == True
-
+        check_enemy = lambda enemy, snaffle: not (enemy is None) and enemy.get_distance_to_unit(snaffle) < 1300
+        check_spell = lambda spell: self.world.spell > self.world.spell_cost(spell)[0]
 
         #  Если мяч в руках, отобьем помечаю
         #  Если видим мяч, ты двигаемся к нему
@@ -398,9 +401,14 @@ class Strategy:
             (Strategy.MOVE, Strategy.FIND_SNAFFLE_ONE, is_true, [len(self.world.snaffles) == 1]),
             (Strategy.MOVE, Strategy.MOVE_FORWARD, None, self.world.center()),
             (Strategy.FIND_BLUDGER, Strategy.MOVE_BLUDGER, None, near_bludger),
+            (Strategy.FIND_SNAFFLE, Strategy.NEAR_ENEMY, check_enemy, [near_enemy,near_snaffle]),
+            (Strategy.NEAR_ENEMY, Strategy.CAN_CAST_PETRIFICUS, check_spell, [Strategy.CAST_PETRIFICUS]),
+            (Strategy.NEAR_ENEMY, Strategy.MOVE_SNAFFLE, None, None),
             (Strategy.FIND_SNAFFLE, Strategy.MOVE_SNAFFLE, None, near_snaffle),
+            (Strategy.FIND_SNAFFLE_ONE, Strategy.NEAR_ENEMY, check_enemy, [near_enemy,near_snaffle]),
             (Strategy.FIND_SNAFFLE_ONE, Strategy.MOVE_SNAFFLE, None, prev_snaffle),
             (Strategy.HOLDING_SNAFFLE, Strategy.THROW_SNAFFLE, None, self.world.opponent_gate(wizard)),
+            (Strategy.CAN_CAST_PETRIFICUS, Strategy.CAST_PETRIFICUS, None, near_enemy),
             (Strategy.CAN_CAST_ACCIO, Strategy.CAST_ACCIO, None, accio),
             (Strategy.CAN_CAST_FLIPENDO, Strategy.CAST_FLIPENDO, None, flipendo)
             ]
@@ -494,6 +502,20 @@ class Strategy:
                 min_dist = new_min
 
         return near_snaffle
+
+    def find_enemy(self, for_snaffle):
+        """ ищем ближайший мяч для волшебника """
+        near_enemy = None
+        min_dist = 100000
+        if not (for_snaffle is None):
+            for enemy in self.world.opponents:
+                dist = for_snaffle.get_distance_to_unit(enemy)
+
+                if dist < min_dist:
+                    near_enemy = enemy
+                    min_dist = dist
+
+        return near_enemy
 
 
 
