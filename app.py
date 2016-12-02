@@ -91,58 +91,6 @@ class Vec2:
         return "(%d,%d)" % (self.x,self.y)
 
 
-
-    def random_vector_in_unit_radius(self):
-        """Returns a position randomly distributed on a disk of unit radius
-    on the XZ (Y=0) plane, centered at the origin.  Orientation will be
-    random and length will range between 0 and 1"""
-        find_solution = False
-        while(not find_solution):
-            v = Vec2(random.random()*2-1,random.random()*2-1)
-            find_solution = v.lenght() >= 1
-
-        return v
-
-    def random_unit_vector(self):
-        """
-        Returns a position randomly distributed on the surface of a sphere
-        of unit radius centered at the origin.  Orientation will be random
-        and length will be 1"""
-        return self.random_vector_in_unit_radius().normilize()
-
-
-    def vec_limit_deviation_angle_utility(self,insideOrOutside,source,cosineOfConeAngle,basis):
-        sourceLength = source.lenght()
-
-        if (sourceLength == 0): 
-            return source
-
-        direction = source.div(sourceLength)
-        cosineOfSourceAngle = direction.dot (basis)
-
-        if insideOrOutside:
-            if cosineOfSourceAngle >= cosineOfConeAngle:
-                return source
-        else:
-            if cosineOfSourceAngle <= cosineOfConeAngle:
-                return source
-
-        perp = source.perpendicular_component(basis)
-        unitPerp = perp.normalize()
-
-        perpDist = math.sqrt(1 - cosineOfConeAngle*cosineOfSourceAngle)
-
-        c0 = basis.mult(cosineOfConeAngle)
-        c1 = unitPerp.mult(perpDist)
-
-        return c0.add(c1).mult(sourceLength)
-
-
-
-    def limit_max_deviation_angle(self,source,cosineOfConeAngle,basis):
-        return self.vec_limit_deviation_angle_utility(true,source,cosineOfConeAngle,basis)
-    
-    
     @staticmethod
     def zero():
         return Vec2(0,0)
@@ -191,20 +139,6 @@ class Entity:
         speed = self.steer_to_unit(target).lenght()
 
         return self.position.distance(target.position)/speed
-        
-#        me, vme, t, vt = self.position, self.velocity, target.position, target.velocity
-#        d = me.distance(t) 
-#
-#        dd = vme.lenght()
-#
-#        while (d >= self.radius and False):
-#            me, vme, t, vt = self.seek(me, vme, t, vt )
-#
-#            dd = dd + vme.lenght()
-#            d = me.distance(t)
-#        return dd
-#
-        
 
 
     def steer_to(self, t, vt = None):
@@ -215,7 +149,7 @@ class Entity:
             return t
 
         max_velocity = 800
-        
+
         future_t = t.add(vt.mult(2.0))
         desired_velocity = future_t.sub(self.position).normalize().mult(max_velocity)
 
@@ -223,10 +157,8 @@ class Entity:
 
         return self.position.add(steering)
 
-    def steer_to_unit(self, target):        
+    def steer_to_unit(self, target):
         return self.steer_to(target.position, target.velocity)
-        
-        
 
 
 class World:
@@ -237,23 +169,43 @@ class World:
         self.snaffles = []
         self.opponents = []
         self.bludgers = []
+        self.current_spell = []
 
     def add_spell(self):
         self.spell = self.spell + 1
+        for cur in self.current_spell:
+            cur[2] = cur[2] - 1
+        # удаляем заклинания, которые не используются
+        self.current_spell = filter(lambda x: x[3] > 0, self.current_spell)
 
-    def make_spell(self):
-        self.spell = self.spell - 20
+    def spell_cost(self, spell):
+        spells = {
+        Strategy.CAST_ACCIO: (20, 6),
+        Strategy.CAST_FLIPENDO: (20, 3),
+        Strategy.CAST_OBLIVIATE: (5, 1),
+        Strategy.CAST_ACCIO: (10, 3)
+        }
+        return spell[spell]
+
+    def make_spell(self, wizard, spell, target):
+        """Делаем заклинание"""
+
+        cost, time = self.spell_cost(spell)
+
+        self.spell = self.spell - cost
+
+        self.current_spell.append((spell, wizard.entity_id, target.entity_id, time))
 
     def __str__(self):
         s = "w = World(%d)" % self.my_team_id
         for el in self.wizards:
-            s = s + "\nself.wizards.append(%s)" % el
+            s = s + "\nw.wizards.append(%s)" % el
         for el in self.snaffles:
-            s = s + "\nself.snaffles.append(%s)" % el
+            s = s + "\nw.snaffles.append(%s)" % el
         for el in self.opponents:
-            s = s + "\nself.opponents.append(%s)" % el
+            s = s + "\nw.opponents.append(%s)" % el
         for el in self.bludgers:
-            s = s + "\nself.bludgers.append(%s)" % el
+            s = s + "\nw.bludgers.append(%s)" % el
         return s
 
     def read_raw_input(self):
@@ -431,11 +383,11 @@ class Strategy:
 
         elif action[0] == Strategy.CAST_FLIPENDO:
             command = "FLIPENDO %d" % (action[1].entity_id)
-            self.world.make_spell()
+            self.world.make_spell(wizard, action[0],action[1])
 
         elif action[0] == Strategy.CAST_ACCIO:
             command = "ACCIO %d" % (action[1].entity_id)
-            self.world.make_spell()
+            self.world.make_spell(wizard, action[0],action[1])
 
         else:
             obj = self.world.center()
@@ -568,10 +520,8 @@ if __name__ == '__main__':
         elif saction[0] == Strategy.CAST_ACCIO:
                 faction = s.find_action(problem, fw, saction)
 
-#        if debug:
-#            print >> sys.stderr, w
-#            print >> sys.stderr, fw
-#            print >> sys.stderr, sw
+        if debug:
+            print >> sys.stderr, w
 
         fcommand = s.get_command(fw,faction)
         scommand = s.get_command(sw,saction)
