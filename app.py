@@ -94,6 +94,11 @@ class Vec2:
     def __str__(self):
         return "(%d,%d)" % (self.x, self.y)
 
+    def __cmp__(self, other):
+        if not isinstance(other, Vec2):
+            return NotImplemented
+        return cmp(self.x, other.x) and cmp(self.y, other.y)
+
 
     @staticmethod
     def zero():
@@ -148,6 +153,7 @@ class Entity:
 
     def get_steer_distance_to_unit(self, target):
         speed = self.steer_to_unit(target).length()
+        
         return self.position.distance(target.position)*1.0/speed
 
     def steer_to(self, t, vt=None, avoidance=None):
@@ -385,8 +391,8 @@ class Strategy:
             (Strategy.PROBLEM_MOVE, Strategy.MOVE, None, None),
             (Strategy.PROBLEM_ONEBALL, Strategy.MOVE, None, None),
             (Strategy.MOVE, Strategy.CAN_CAST_FLIPENDO, not_none, [flipendo]),
-            (Strategy.MOVE, Strategy.CAN_CAST_ACCIO, not_none, [accio]),
-            #(Strategy.MOVE, Strategy.HOLDING_SNAFFLE, check_holding, [wizard]),
+            #(Strategy.MOVE, Strategy.CAN_CAST_ACCIO, not_none, [accio]),
+            (Strategy.MOVE, Strategy.HOLDING_SNAFFLE, check_holding, [wizard]),
             (Strategy.MOVE, Strategy.FIND_BLUDGER, not_none, [near_bludger]),
             (Strategy.MOVE, Strategy.FIND_SNAFFLE, not_none, [near_snaffle]),
             (Strategy.MOVE, Strategy.FIND_SNAFFLE_ONE, is_true, [len(self.world.snaffles) == 1]),
@@ -396,7 +402,7 @@ class Strategy:
             (Strategy.FIND_SNAFFLE_ONE, Strategy.MOVE_SNAFFLE, None, prev_snaffle),
             (Strategy.HOLDING_SNAFFLE, Strategy.THROW_SNAFFLE, None, self.world.opponent_gate(wizard)),
             (Strategy.CAN_CAST_ACCIO, Strategy.CAST_ACCIO, None, accio),
-            #(Strategy.CAN_CAST_FLIPENDO, Strategy.CAST_FLIPENDO, None, flipendo)
+            (Strategy.CAN_CAST_FLIPENDO, Strategy.CAST_FLIPENDO, None, flipendo)
             ]
 
         return states
@@ -475,8 +481,13 @@ class Strategy:
         """ ищем ближайший мяч для волшебника """
         near_snaffle = None
         min_dist = 100000
+        
         for snaffle in self.world.snaffles:
-            new_min = for_wizard.get_steer_distance_to_unit(snaffle)
+            dist = for_wizard.get_distance_to_unit(snaffle)
+            steer_direction = for_wizard.steer_to_unit(snaffle)
+            dv = for_wizard.velocity.sub(for_wizard.position.sub(steer_direction).normalize().mult(150))
+
+            new_min = dist /dv.length()            
 
             if new_min < min_dist and (prev_snaffle == None or snaffle != prev_snaffle):
                 near_snaffle = snaffle
@@ -510,7 +521,7 @@ class Strategy:
     def find_flipendo_snaffle(self, for_wizard, prev_snaffle):
         """ ищем ближайший мяч для волшебника """
 
-        if self.world.spell < 20:
+        if self.world.spell < 40:
             return None
 
 
@@ -518,7 +529,7 @@ class Strategy:
 
         gate = self.world.opponent_gate()
 
-        min_dist = 4000
+        min_dist = 1000
 
         flipendo = None
 
