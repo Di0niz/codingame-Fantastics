@@ -205,14 +205,14 @@ class Entity:
         steering = steering.add(self.steer)
         steering = steering.add(self.avoidance)
 
-        steering = steering.truncate(trust)
+        #steering = steering.truncate(trust)
         #steering = steering.div(self.mass)
 
         return self.position.add(steering)
 
     def get_desired_velocity(self, t, position = None):
         """ Ищем направление движения объекта"""
-        max_velocity = 600
+        max_velocity = 800
 
         return t.sub(self.position).normalize().mult(max_velocity + 1)
 
@@ -514,8 +514,8 @@ class Strategy:
             (Strategy.PROBLEM_MOVE, Strategy.MOVE, None, None),
             (Strategy.PROBLEM_ONEBALL, Strategy.MOVE, None, None),
             (Strategy.MOVE, Strategy.CAN_CAST_FLIPENDO, not_none, [flipendo]),
-            #(Strategy.MOVE, Strategy.CAN_CAST_ACCIO, not_none, [accio]),
             (Strategy.MOVE, Strategy.HOLDING_SNAFFLE, check_holding, [wizard]),
+            (Strategy.MOVE, Strategy.CAN_CAST_ACCIO, not_none, [accio]),
             #(Strategy.MOVE, Strategy.FIND_BLUDGER, not_none, [near_bludger]),
             (Strategy.MOVE, Strategy.FIND_SNAFFLE_ONE, is_true, [len(self.world.snaffles) == 1]),
             (Strategy.MOVE, Strategy.FIND_SNAFFLE, not_none, [near_snaffle]),
@@ -730,15 +730,31 @@ class Strategy:
     def find_accio_snaffle(self, for_wizard, prev_snaffle):
         """ ищем ближайший мяч для волшебника """
 
-        if self.world.spell < 20:
+        if self.world.spell < 30:
             return None
+            
 
         gate = self.world.gate()
 
-        min_dist = 10000
+        min_dist = 5000
 
         accio = None
         for snaffle in self.world.snaffles:
+            
+            if (Strategy.CAST_ACCIO, snaffle.entity_id)\
+            in [(spell_struct[0],spell_struct[2]) for spell_struct in self.world.current_spell]:
+                continue
+
+            # если рядом нет наших
+            wizard_near = False
+            for wizard in self.world.wizards:
+                if wizard.get_distance_to_unit(snaffle) < 2000:
+                    wizard_near = True
+            
+            if wizard_near:
+                continue
+
+
             t = snaffle.position.add(snaffle.velocity)
             new_min = gate.distance(t)
 
@@ -809,9 +825,11 @@ class Strategy:
         gate = self.world.opponent_gate()
 
         y = self.insept_vec_to_gate(wizard.position, wizard.position.add(wizard.velocity), gate)
-        
-        y = min(y, 2700)
-        y = max(y, 5200)
+
+        if y < 2700:
+            y = 2700
+        if y > 5200:
+            y = 5200
         return Vec2(gate.x, y)
 
 class DummyOpponentStrategy(Strategy):
