@@ -153,9 +153,11 @@ class Entity:
             return NotImplemented
         return cmp(self.entity_id, other.entity_id)
 
-    def forward(self, velocity = None):
-        if velocity == None:
+    def forward(self, velocity = None, t = 1.0):
+        if velocity is None:
             velocity = self.velocity
+
+        velocity = velocity.add(self.steer).mult(t)
         position = self.position.add(velocity)
 
         return Entity(
@@ -169,9 +171,6 @@ class Entity:
             self.mass,
             self.friction
         )
-
-    def forward_desired(self, velocity = None):
-        return self.forward(self.desired_velocity)
 
     def future_position(self, with_steering = None):
         if with_steering == None:
@@ -189,20 +188,28 @@ class Entity:
             return 0 
 
     def set_target_unit(self, target, trust = 150):
+        #self.target = target
         self.set_target(target.future_position(), trust)
 
 
     def set_target(self, future_t, trust = 150):
-        max_velocity = trust * self.friction
+        max_velocity = trust 
 
-        self.desired_velocity = future_t.sub(self.position).normalize().mult(800)
-        self.steer = self.desired_velocity.sub(self.velocity).normalize().mult(max_velocity)
+        self.desired_velocity = future_t.sub(self.position).normalize().mult(1000)
+        self.steer = self.desired_velocity.sub(self.velocity)
 
     def get_direction(self):
         return self.position.add(self.steer).sub(self.avoidance)
 
-    def get_force(self):
-        return self.position.add(self.steer)
+    def get_force(self, trust = 150):
+        steering = Vec2.zero()
+        steering = steering.add(self.steer)
+        steering = steering.add(self.avoidance)
+
+        steering = steering.truncate(trust)
+        #steering = steering.div(self.mass)
+
+        return self.position.add(self.velocity).add(steering)
 
     def get_desired_velocity(self, t, position = None):
         """ Ищем направление движения объекта"""
@@ -355,50 +362,57 @@ class World:
         return Vec2(16000 if self.my_team_id == 1 else 0, center)
 
 
-    def find_most_avoidance(self, for_wizard, steer_direction):
+class Behaviour:
+    def __init__(self, current_entitity, strategy):
+
+        strategy.prepare_dummy()
+
+        self.obtacles = []
+
+        for entity in strategy.world.wizards + strategy.world.bludgers+  strategy.world.opponents:
+            if current_entitity.entity_id != entity.entity_id:
+                self.obtacles.append(entity)
+
+    def find_most_avoidance(self, for_wizard):
         """Ищем максимальный вектор отклонения"""
         max_dist = 0.0
         avoidance = Vec2.zero()
 
         # кешируем расчеты данных
-        dv = for_wizard.velocity.\
-        sub(for_wizard.position.sub(steer_direction).normalize().mult(150*for_wizard.friction))
-
-        head1 = for_wizard.position.add(dv)
-        head2 = for_wizard.position.add(dv.mult(2))
+        head1 = for_wizard.forward()
 
         # определяем возможные проблемы
-        # TODO: пока исключаем, self.opponents]:
-        obtacles = self.bludgers+self.opponents
 
-
-        for obtacle in obtacles:
+        for obtacle in self.obtacles:
 
             # определяем список позиций, для которых расчитываем
+            obtacle_forward = obtacle.forward()
             positions = []
-            for k in [1.0, 1.5, 2.0]:
-                positions.append(\
-                    (head1, obtacle.position.add(obtacle.velocity).mult(k)))
+
+            for t in [1.4,1.6,2.0]:
+                line = (head1.forward(t = t).position, obtacle_forward.forward(t =t).position)
+                positions.append(line)
+            
+                #print line, line[0].distance(line[1])
 
             # расчитываем максимальный радиус
-            max_avoid = obtacle.radius + for_wizard.radius + 30
+            max_avoid = obtacle.radius + for_wizard.radius
             for future in positions:
-
+                
                 fp, ob = future
                 # ищем пересечение с объектами
                 if fp.intersects_circle(ob, max_avoid):
 
-                    new_avoidance = fp.sub(ob).normalize().mult(max_avoid)
-                    dist = new_avoidance.length()
+                    avoidance_force = fp.sub(ob).normalize().mult(max_avoid)
+                    dist = avoidance_force.length()
 
                     # если нашли
+                    # 
                     if max_dist < dist:
-                        avoidance = new_avoidance
-            #  for future in positions:
-        # for obtacle in [self.bludgers]:
+                        avoidance = avoidance_force
+#            #  for future in positions:
         return avoidance
-
-
+        
 
 class Strategy:
     """Описание используемой стратегии"""
@@ -456,12 +470,19 @@ class Strategy:
         bludger_strategy = DummyBludgerStrategy(self.world)
         for element in self.world.bludgers:
             action = bludger_strategy.find_action(Strategy.MOVE, element)
-            element.set_target_unit(action[1])
+            element.set_target_unit(action[1], 400)
 
         opponent_strategy = DummyOpponentStrategy(self.world)
         for element in self.world.opponents:
             action = opponent_strategy.find_action(Strategy.MOVE, element)
-            element.set_target_unit(action[1])
+            obj = action[1]
+
+            if isinstance(obj, Entity):
+                element.set_target_unit(action[1])
+            else:
+                element.set_target(action[1])
+
+
 
     def get_rules(self, wizard, prev_action):
 
@@ -573,7 +594,6 @@ class Strategy:
 
         if (current_rule[3] == None):
             print rules_comment
-            
 
         return current_rule[1], current_rule[3]
 
@@ -582,15 +602,17 @@ class Strategy:
         command = ""
         thrust = 150 if action[0] <= Strategy.MOVE else 500
 
+        b = Behaviour(wizard, self)
 
-        if isinstance(action[1], Vec2):            
+
+        if isinstance(action[1], Vec2):
             wizard.set_target(action[1], thrust)
         else:
             wizard.set_target_unit(action[1], thrust)
 
-            wizard.avoidance = self.world.find_most_avoidance(wizard, wizard.steer)
+        wizard.avoidance = b.find_most_avoidance(wizard)
 
-        obj = wizard.get_force()
+        obj = wizard.get_force(thrust)
 
         if action[0] <= Strategy.MOVE:
             command = "MOVE %d %d %d %d" % (obj.x, obj.y, 150, action[0])
@@ -678,12 +700,15 @@ class Strategy:
 
         return near_snaffle
 
-    def find_enemy(self, for_snaffle):
+    def find_enemy(self, for_snaffle, inlist = None):
         """ ищем ближайший мяч для волшебника """
         near_enemy = None
         min_dist = 100000
         if not for_snaffle is None:
-            for enemy in self.world.opponents:
+            if inlist is None:
+                inlist = self.world.opponents
+
+            for enemy in inlist:
                 dist = for_snaffle.get_distance_to_unit(enemy)
 
                 if dist < min_dist:
@@ -746,7 +771,7 @@ class Strategy:
                 dist = for_wizard.get_distance_to_unit(snaffle)
 
                 # if new_min < min_dist and
-                if (2500 < y < 4700) and snaffle != prev_snaffle and ( dist < 2000):
+                if (2700 < y < 4500) and snaffle != prev_snaffle and ( dist < 2000):
 
                     flipendo = snaffle
                     #min_dist = new_min
@@ -773,16 +798,13 @@ class DummyOpponentStrategy(Strategy):
 
         prev_snaffle = None
         near_snaffle = self.find_snaffle(wizard, prev_snaffle)
-        near_enemy = self.find_enemy(near_snaffle)
+        last_snaffle = self.world.snaffles[0]
 
 
         check_throw = lambda w, snaffle: w > snaffle
         check_holding = lambda t: t.state == 1
         not_none = lambda t: t != None
         is_true = lambda t: t == True
-        check_enemy = lambda enemy, snaffle: not (enemy is None) and\
-            enemy.get_distance_to_unit(snaffle) < 1300
-        check_spell = lambda spell: self.world.spell > self.world.spell_cost(spell)[0]
 
         # определяем мои или не мои ворота
         check_gate = lambda el: not (el is None) and\
@@ -792,9 +814,9 @@ class DummyOpponentStrategy(Strategy):
         #  Если видим мяч, ты двигаемся к нему
         states = [
             (Strategy.PROBLEM_MOVE, Strategy.MOVE, None, None),
-            (Strategy.PROBLEM_ONEBALL, Strategy.MOVE, None, None),
             (Strategy.MOVE, Strategy.HOLDING_SNAFFLE, check_holding, [wizard]),
             (Strategy.MOVE, Strategy.FIND_SNAFFLE, not_none, [near_snaffle]),
+            (Strategy.MOVE, Strategy.MOVE_SNAFFLE, None, last_snaffle),
             (Strategy.FIND_SNAFFLE, Strategy.MOVE_SNAFFLE, None, near_snaffle),
             (Strategy.HOLDING_SNAFFLE, Strategy.THROW_SNAFFLE,\
                 None, self.world.gate(wizard))
@@ -806,7 +828,7 @@ class DummyOpponentStrategy(Strategy):
 class DummyBludgerStrategy(Strategy):
     def get_rules(self, wizard, prev_action):
 
-        near_enemy = self.find_enemy(wizard)
+        near_enemy = self.find_enemy(wizard, self.world.wizards + self.world.opponents)
 
         #  Если мяч в руках, отобьем помечаю
         #  Если видим мяч, ты двигаемся к нему
