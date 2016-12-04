@@ -195,8 +195,8 @@ class Entity:
     def set_target(self, future_t, trust = 150):
         max_velocity = trust 
 
-        self.desired_velocity = future_t.sub(self.position).normalize().mult(1000)
-        self.steer = self.desired_velocity.sub(self.velocity)
+        self.desired_velocity = future_t.sub(self.position).normalize().mult(600)
+        self.steer = self.desired_velocity.sub(self.velocity).normalize().mult(trust)
 
     def get_direction(self):
         return self.position.add(self.steer).sub(self.avoidance)
@@ -241,7 +241,6 @@ class Entity:
         return self.position.add(steering)
 
     def steer_to_unit(self, target, avoidance=None):
-        
         return self.steer_to(target.position, target.velocity, avoidance)
 
 
@@ -597,6 +596,15 @@ class Strategy:
 
         return current_rule[1], current_rule[3]
 
+    def command_description(self, action):
+        
+        obj = ""
+        if isinstance(action[1], Vec2):
+            obj = str(action[1])
+        else:
+            obj = "%d" % action[1].entity_id
+        return "%s: %s" % (Strategy.desc(action[0]), obj)
+
 
     def get_command(self, wizard, action):
         command = ""
@@ -615,10 +623,10 @@ class Strategy:
         obj = wizard.get_force(thrust)
 
         if action[0] <= Strategy.MOVE:
-            command = "MOVE %d %d %d %d" % (obj.x, obj.y, 150, action[0])
+            command = "MOVE %d %d %d %s" % (obj.x, obj.y, 150, self.command_description(action))
 
         elif action[0] <= Strategy.THROW:    
-            command = "THROW %d %d %d %d" % (obj.x, obj.y, 500, action[0])
+            command = "THROW %d %d %d %s" % (obj.x, obj.y, 500, self.command_description(action))
 
         elif action[0] == Strategy.CAST_FLIPENDO:
             command = "FLIPENDO %d" % (action[1].entity_id)
