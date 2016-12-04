@@ -174,7 +174,7 @@ class Entity:
 
     def future_position(self, with_steering = None):
         if with_steering == None:
-            return self.position.add(self.velocity)
+            return self.position.add(self.velocity.mult(1.0))
         else: 
             return 0 
 #                    dv = self.velocity.\
@@ -193,13 +193,12 @@ class Entity:
 
 
     def set_target(self, future_t, trust = 150):
-        max_velocity = trust 
 
-        self.desired_velocity = future_t.sub(self.position).normalize().mult(600)
-        self.steer = self.desired_velocity.sub(self.velocity).normalize().mult(trust)
+        self.desired_velocity = self.get_desired_velocity(future_t)
+        self.steer = self.desired_velocity.sub(self.velocity).normalize().mult(trust * self.friction)
 
     def get_direction(self):
-        return self.position.add(self.steer).sub(self.avoidance)
+        return self.position.add(self.velocity).add(self.steer).add(self.avoidance)
 
     def get_force(self, trust = 150):
         steering = Vec2.zero()
@@ -209,15 +208,13 @@ class Entity:
         steering = steering.truncate(trust)
         #steering = steering.div(self.mass)
 
-        return self.position.add(self.velocity).add(steering)
+        return self.position.add(steering)
 
     def get_desired_velocity(self, t, position = None):
         """ Ищем направление движения объекта"""
+        max_velocity = 600
 
-        if position is None:
-            position = self.position
-        max_velocity = 800
-        return t.sub(position).normalize().mult(max_velocity)
+        return t.sub(self.position).normalize().mult(max_velocity + 1)
 
     def steer_to(self, t, vt=None, avoidance=None):
         if vt is None:
@@ -508,6 +505,9 @@ class Strategy:
         check_gate = lambda el: not (el is None) and\
             self.world.gate().distance(el.position) < 9000
 
+        opponent_gate = self.direction_to_gate(wizard)
+
+
         #  Если мяч в руках, отобьем помечаю
         #  Если видим мяч, ты двигаемся к нему
         states = [
@@ -536,13 +536,13 @@ class Strategy:
             (Strategy.NEAR_MY_GATE, Strategy.CAN_THROW_SNAFFLE_NEAR_GATE,\
                 not_none, [next_near_snaffle]),
             (Strategy.NEAR_MY_GATE, Strategy.THROW_SNAFFLE,\
-                None, self.world.opponent_gate(wizard)),
+                None, opponent_gate),
             (Strategy.CAN_THROW_SNAFFLE_NEAR_GATE, Strategy.THROW_SNAFFLE,\
                 not_none, next_near_snaffle),
             (Strategy.HOLDING_SNAFFLE, Strategy.CAN_CAST_FLIPENDO,\
                 not_none, [flipendo]),
             (Strategy.HOLDING_SNAFFLE, Strategy.THROW_SNAFFLE,\
-                None, self.world.opponent_gate(wizard)),                
+                None, opponent_gate),                
             (Strategy.CAN_CAST_PETRIFICUS, Strategy.CAST_PETRIFICUS, None, near_enemy),
             (Strategy.CAN_CAST_ACCIO, Strategy.CAST_ACCIO, None, accio),
             (Strategy.CAN_CAST_FLIPENDO, Strategy.CAST_FLIPENDO, None, flipendo)
@@ -602,7 +602,8 @@ class Strategy:
         if isinstance(action[1], Vec2):
             obj = str(action[1])
         else:
-            obj = "%d" % action[1].entity_id
+            avoid = action[1].avoidance
+            obj = "%d %s" % (action[1].entity_id, avoid)
         return "%s: %s" % (Strategy.desc(action[0]), obj)
 
 
@@ -657,9 +658,8 @@ class Strategy:
                 continue
 
             # если мяч двигается слишком быстро, тогда игнорируем его
-            if snaffle.velocity.length() > 500:
+            if snaffle.velocity.length() > 1000:
                 continue    
-
 
             dist = for_wizard.get_distance_to_unit(snaffle)
             steer_direction = for_wizard.steer_to_unit(snaffle)
@@ -771,18 +771,15 @@ class Strategy:
 
             t = snaffle.position.add(snaffle.velocity)
 
-            if gate.x > t.x > cur_pos.x or gate.x < t.x < cur_pos.x:
+            y = self.insept_vec_to_gate(cur_pos, t, gate)
 
-                y = ((t.y - cur_pos.y) * 1.0/(t.x - cur_pos.x)) * (gate.x - t.x) + t.y
+            dist = for_wizard.get_distance_to_unit(snaffle)
 
+            # if new_min < min_dist and
+            if (2700 < y < 4500) and snaffle != prev_snaffle and ( dist < 2000):
 
-                dist = for_wizard.get_distance_to_unit(snaffle)
-
-                # if new_min < min_dist and
-                if (2700 < y < 4500) and snaffle != prev_snaffle and ( dist < 2000):
-
-                    flipendo = snaffle
-                    #min_dist = new_min
+                flipendo = snaffle
+                #min_dist = new_min
 
         return flipendo
 
@@ -800,6 +797,22 @@ class Strategy:
 
         return near_object
 
+    def insept_vec_to_gate(self, cur_pos, t, gate):
+        y = 0.0
+        if gate.x > t.x > cur_pos.x or gate.x < t.x < cur_pos.x:
+            y = ((t.y - cur_pos.y) * 1.0/(t.x - cur_pos.x)) * (gate.x - t.x) + t.y
+
+        return y
+
+    def direction_to_gate(self, wizard):
+
+        gate = self.world.opponent_gate()
+
+        y = self.insept_vec_to_gate(wizard.position, wizard.position.add(wizard.velocity), gate)
+        
+        y = min(y, 2700)
+        y = max(y, 5200)
+        return Vec2(gate.x, y)
 
 class DummyOpponentStrategy(Strategy):
     def get_rules(self, wizard, prev_action):

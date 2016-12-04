@@ -6,26 +6,23 @@ import unittest
 
 from app import Vec2, World, Strategy, Entity, Behaviour
 
-
-
-
 class StrategyTestCase (unittest.TestCase):
     
     def test_steer(self):
         w = World(0)
-        w.wizards.append(Entity('0','WIZARD','12716','1748','298','321','0',400,300,1.000000,0.750000))
-        w.wizards.append(Entity('1','WIZARD','11320','2894','291','-128','0',400,300,1.000000,0.750000))
-        w.snaffles.append(Entity('4','SNAFFLE','13229','3951','44','6','0',150,800,0.500000,0.900000))
-        w.snaffles.append(Entity('5','SNAFFLE','5795','5511','-74','11','0',150,800,0.500000,0.900000))
-        w.snaffles.append(Entity('6','SNAFFLE','7592','4761','47','-120','0',150,800,0.500000,0.900000))
-        w.snaffles.append(Entity('7','SNAFFLE','9980','433','541','-393','0',150,800,0.500000,0.900000))
-        w.snaffles.append(Entity('8','SNAFFLE','13230','2988','520','-92','0',150,800,0.500000,0.900000))
-        w.snaffles.append(Entity('9','SNAFFLE','1003','6345','609','-11','0',150,800,0.500000,0.900000))
-        w.opponents.append(Entity('2','OPPONENT_WIZARD','11087','4059','256','-172','0',400,300,1.000000,0.750000))
-        w.opponents.append(Entity('3','OPPONENT_WIZARD','12345','4284','196','-259','0',400,300,1.000000,0.750000))
-        w.bludgers.append(Entity('11','BLUDGER','9728','1545','715','172','0',200,600,8.000000,0.750000))
-        w.bludgers.append(Entity('12','BLUDGER','10124','4992','-255','-453','0',200,600,8.000000,0.750000))
-       
+        w.wizards.append(Entity('0','WIZARD','10440','660','325','-64','0',400,300,1.000000,0.750000))
+        w.wizards.append(Entity('1','WIZARD','11138','3425','237','-219','0',400,300,1.000000,0.750000))
+        w.snaffles.append(Entity('4','SNAFFLE','7369','5390','-646','-124','0',150,800,0.500000,0.900000))
+        w.snaffles.append(Entity('5','SNAFFLE','6432','5420','-233','33','0',150,800,0.500000,0.900000))
+        w.snaffles.append(Entity('6','SNAFFLE','6966','6380','0','0','0',150,800,0.500000,0.900000))
+        w.snaffles.append(Entity('8','SNAFFLE','920','1221','33','-17','0',150,800,0.500000,0.900000))
+        w.snaffles.append(Entity('9','SNAFFLE','3752','5898','-2130','-458','0',150,800,0.500000,0.900000))
+        w.snaffles.append(Entity('10','SNAFFLE','13020','4036','186','29','0',150,800,0.500000,0.900000))
+        w.opponents.append(Entity('2','OPPONENT_WIZARD','8852','5989','-228','44','0',400,300,1.000000,0.750000))
+        w.opponents.append(Entity('3','OPPONENT_WIZARD','12074','4590','402','3','0',400,300,1.000000,0.750000))
+        w.bludgers.append(Entity('11','BLUDGER','7049','1137','698','-229','0',200,600,8.000000,0.750000))
+        w.bludgers.append(Entity('12','BLUDGER','12236','6919','-458','-115','0',200,600,8.000000,0.750000))
+                
         s = Strategy(w)
 
         fw = w.wizards[0]
@@ -36,12 +33,36 @@ class StrategyTestCase (unittest.TestCase):
         faction = s.find_action(problem, fw)
         saction = s.find_action(problem, sw)
 
-#        fcommand = s.get_command(fw, faction)
-        scommand = s.get_command(sw, saction)
+        if faction[0] == saction[0] and faction[0] == Strategy.MOVE_SNAFFLE:
+            if fw.get_distance_to_unit(faction[1]) > sw.get_distance_to_unit(saction[1]):
+                faction = s.find_action(problem, fw, saction)
+            else:
+                saction = s.find_action(problem, sw, faction)
+        elif faction[0] == Strategy.CAST_FLIPENDO:
+            saction = s.find_action(problem, sw, faction)
+        elif saction[0] == Strategy.CAST_FLIPENDO:
+            faction = s.find_action(problem, fw, saction)
+        elif faction[0] == Strategy.CAST_ACCIO:
+            saction = s.find_action(problem, sw, faction)
+        elif saction[0] == Strategy.CAST_ACCIO:
+            faction = s.find_action(problem, fw, saction)
         
 
-#        print faction, fw.velocity, fw.desired_velocity, fw.steer, fw.avoidance
-        print saction, sw.velocity, sw.desired_velocity, sw.steer, sw.avoidance
+        fcommand = s.get_command(fw, faction)
+        
+        target = faction[1].future_position()
+        print fw.position, faction[1].future_position()
+
+        max_velocity = fw.velocity.length() 
+        desired_velocity = target.sub(fw.position).normalize().mult(max_velocity)
+        steer = desired_velocity.sub(fw.velocity)
+
+        print steer.normalize().mult(150*fw.friction)
+        
+
+        print fw.steer
+        rz = Entity('0','WIZARD','10915','595','356','-48','0',400,300,1.000000,0.750000)
+        print rz
 
         pass
     def test_find_snaffle(self):
