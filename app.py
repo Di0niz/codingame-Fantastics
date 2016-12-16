@@ -888,6 +888,8 @@ if __name__ == '__main__':
 
     # game loop
     while True:
+        my_score, my_magic = [int(i) for i in raw_input().split()]
+        opponent_score, opponent_magic = [int(i) for i in raw_input().split()]
 
         w.read_raw_input()
 
